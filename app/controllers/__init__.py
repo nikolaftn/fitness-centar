@@ -1,0 +1,1 @@
+"""Kontroleri Tkinter prozora."""

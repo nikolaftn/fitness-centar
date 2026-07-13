@@ -7,18 +7,21 @@ DATA_DIRECTORY = PROJECT_ROOT / "data"
 DATABASE_PATH = DATA_DIRECTORY / "fitness.db"
 
 
-def get_connection():
+def get_connection(database_path=DATABASE_PATH):
     """Otvara konekciju sa lokalnom SQLite bazom."""
-    connection = sqlite3.connect(DATABASE_PATH)
+    database_path = Path(database_path)
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
 
-def initialize_database():
+def initialize_database(database_path=DATABASE_PATH):
     """Pravi data folder i osnovne tabele za korisnike ako ne postoje."""
-    DATA_DIRECTORY.mkdir(exist_ok=True)
-    connection = get_connection()
+    database_path = Path(database_path)
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = get_connection(database_path)
 
     try:
         connection.executescript(
@@ -30,7 +33,7 @@ def initialize_database():
                 first_name TEXT NOT NULL,
                 last_name TEXT NOT NULL,
                 birth_date TEXT NOT NULL,
-                password_hash TEXT NOT NULL,
+                password TEXT NOT NULL,
                 registration_status TEXT NOT NULL DEFAULT 'approved'
                     CHECK (registration_status IN ('pending', 'approved', 'rejected')),
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -146,6 +149,15 @@ def initialize_database():
             );
             """
         )
+
+        user_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(users)").fetchall()
+        }
+        if "password_hash" in user_columns and "password" not in user_columns:
+            connection.execute(
+                "ALTER TABLE users RENAME COLUMN password_hash TO password"
+            )
         connection.commit()
     finally:
         connection.close()

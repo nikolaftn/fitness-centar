@@ -1,15 +1,9 @@
-from app.database import get_connection
+from app.models.repositories.user_repository import UserRepository
 
 
 class UserModel:
-    """Rad sa tabelom users i pravilima vezanim za korisnike."""
+    """Kompatibilni ulaz u korisnicki Model sloj."""
 
     @staticmethod
     def count_users():
-        connection = get_connection()
-
-        try:
-            row = connection.execute("SELECT COUNT(*) AS total FROM users").fetchone()
-            return row["total"]
-        finally:
-            connection.close()
+        return UserRepository().count_users()

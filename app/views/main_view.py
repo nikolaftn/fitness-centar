@@ -38,32 +38,41 @@ class MainView:
             buttons_frame,
             text="Prijava",
             width=30,
-            command=lambda: self.controller.show_not_implemented_message("Prijava"),
+            command=self.controller.open_login,
         ).pack(pady=6)
 
         tk.Button(
             buttons_frame,
             text="Registracija klijenta",
             width=30,
-            command=lambda: self.controller.show_not_implemented_message(
-                "Registracija klijenta"
-            ),
+            command=self.controller.open_client_registration,
         ).pack(pady=6)
 
         tk.Button(
             buttons_frame,
             text="Zahtev za registraciju trenera",
             width=30,
-            command=lambda: self.controller.show_not_implemented_message(
-                "Zahtev za registraciju trenera"
-            ),
+            command=self.controller.open_trainer_registration,
         ).pack(pady=6)
+
+        self.admin_setup_button = tk.Button(
+            buttons_frame,
+            text="Pocetno podesavanje administratora",
+            width=30,
+            command=self.controller.open_initial_admin_setup,
+        )
+        if not self.controller.has_admin():
+            self.admin_setup_button.pack(pady=6)
 
         self.user_count_label.pack(pady=(30, 0))
 
     def refresh_user_count(self):
         total = self.controller.get_user_count()
         self.user_count_label.config(text=f"Broj korisnika u bazi: {total}")
+
+    def refresh_after_admin_created(self):
+        self.admin_setup_button.pack_forget()
+        self.refresh_user_count()
 
     def show_info(self, title, message):
         messagebox.showinfo(title, message, parent=self.root)

@@ -1,0 +1,1 @@
+"""Repository implementacije Model sloja."""
