@@ -93,7 +93,7 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(
             1500.5, repository.created_trainers[0]["price_per_training"]
         )
-        self.assertTrue(controller.view.closed)
+        self.assertFalse(controller.view.closed)
 
     def test_pending_trainer_cannot_finish_login(self):
         user = SimpleNamespace(

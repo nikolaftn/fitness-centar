@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
 
 class AdminDashboardView:
@@ -55,6 +55,9 @@ class AdminDashboardView:
         scrollbar.pack(side="right", fill="y")
         self.table.configure(yscrollcommand=scrollbar.set)
 
+        self.message_label = tk.Label(self.window, padx=24, anchor="w")
+        self.message_label.pack(fill="x", pady=(10, 0))
+
         buttons = tk.Frame(self.window, padx=24, pady=18)
         buttons.pack(fill="x")
         tk.Button(
@@ -88,11 +91,8 @@ class AdminDashboardView:
         selection = self.table.selection()
         return int(selection[0]) if selection else None
 
-    def confirm(self, message):
-        return messagebox.askyesno("Potvrda", message, parent=self.window)
-
     def show_error(self, message):
-        messagebox.showerror("Administrator", message, parent=self.window)
+        self.message_label.config(text=message, fg="firebrick")
 
     def show_info(self, message):
-        messagebox.showinfo("Administrator", message, parent=self.window)
+        self.message_label.config(text=message, fg="darkgreen")

@@ -66,9 +66,3 @@ class AppController:
             TrainerDashboardController(self.view.root, user)
         elif user.role == "client":
             ClientDashboardController(self.view.root, user)
-
-    def show_not_implemented_message(self, feature_name):
-        self.view.show_info(
-            "Nedostupna funkcionalnost",
-            f"Funkcionalnost '{feature_name}' jos nije napravljena.",
-        )

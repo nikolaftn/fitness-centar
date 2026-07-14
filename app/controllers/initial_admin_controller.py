@@ -35,4 +35,3 @@ class InitialAdminController:
         self.view.show_info("Administrator je napravljen. Sada mozete da se prijavite.")
         if self.on_created:
             self.on_created()
-        self.view.close()

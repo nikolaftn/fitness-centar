@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import messagebox
 
 
 class LoginView:
@@ -26,6 +25,8 @@ class LoginView:
         self.password_entry.pack(fill="x", pady=(4, 18))
 
         tk.Button(frame, text="Prijavi se", command=self._submit).pack(fill="x")
+        self.message_label = tk.Label(frame, justify="left", wraplength=330)
+        self.message_label.pack(fill="x", pady=(12, 0))
         self.window.bind("<Return>", lambda _event: self._submit())
         self.username_entry.focus_set()
 
@@ -33,10 +34,10 @@ class LoginView:
         self.controller.submit(self.username_entry.get(), self.password_entry.get())
 
     def show_error(self, message):
-        messagebox.showerror("Prijava", message, parent=self.window)
+        self.message_label.config(text=message, fg="firebrick")
 
     def show_info(self, message):
-        messagebox.showinfo("Prijava", message, parent=self.window)
+        self.message_label.config(text=message, fg="darkgreen")
 
     def close(self):
         self.window.destroy()

@@ -47,4 +47,3 @@ class TrainerRegistrationController:
         self.view.show_info("Zahtev je poslat i ceka odobrenje administratora.")
         if self.on_registered:
             self.on_registered()
-        self.view.close()

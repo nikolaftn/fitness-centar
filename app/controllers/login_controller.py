@@ -26,14 +26,6 @@ class LoginController:
             self.view.show_error("Zahtev za registraciju je odbijen.")
             return
 
-        role_names = {
-            "admin": "administrator",
-            "trainer": "trener",
-            "client": "klijent",
-        }
-        self.view.show_info(
-            f"Uspesna prijava: {user.full_name} ({role_names.get(user.role, user.role)})."
-        )
         self.view.close()
         if self.on_login:
             self.on_login(user)

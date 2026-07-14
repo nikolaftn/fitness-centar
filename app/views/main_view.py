@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import messagebox
 
 
 class MainView:
@@ -73,9 +72,6 @@ class MainView:
     def refresh_after_admin_created(self):
         self.admin_setup_button.pack_forget()
         self.refresh_user_count()
-
-    def show_info(self, title, message):
-        messagebox.showinfo(title, message, parent=self.root)
 
     def run(self):
         self.root.mainloop()

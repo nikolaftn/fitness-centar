@@ -17,6 +17,85 @@ def get_connection(database_path=DATABASE_PATH):
     return connection
 
 
+def add_test_data(database_path=DATABASE_PATH):
+    """Dodaje osnovne test naloge ako vec ne postoje."""
+    connection = get_connection(database_path)
+
+    try:
+        connection.execute(
+            """
+            INSERT INTO users (
+                username, role, first_name, last_name, birth_date,
+                password, registration_status
+            )
+            SELECT 'admin', 'admin', 'Glavni', 'Administrator', '1980-01-01',
+                   'admin123', 'approved'
+            WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin')
+            """
+        )
+        connection.executemany(
+            """
+            INSERT OR IGNORE INTO users (
+                username, role, first_name, last_name, birth_date,
+                password, registration_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    "trener1",
+                    "trainer",
+                    "Marko",
+                    "Markovic",
+                    "1988-05-14",
+                    "trener123",
+                    "approved",
+                ),
+                (
+                    "trener2",
+                    "trainer",
+                    "Ana",
+                    "Anic",
+                    "1992-09-22",
+                    "trener123",
+                    "pending",
+                ),
+                (
+                    "klijent1",
+                    "client",
+                    "Petar",
+                    "Petrovic",
+                    "2001-03-10",
+                    "klijent123",
+                    "approved",
+                ),
+                (
+                    "klijent2",
+                    "client",
+                    "Jelena",
+                    "Jovanovic",
+                    "1999-11-08",
+                    "klijent123",
+                    "approved",
+                ),
+            ],
+        )
+        connection.executemany(
+            """
+            INSERT OR IGNORE INTO trainer_profiles (
+                user_id, education, years_of_experience, price_per_training
+            )
+            SELECT id, ?, ?, ? FROM users WHERE username = ?
+            """,
+            [
+                ("Fakultet sporta", 8, 2000.0, "trener1"),
+                ("Visoka sportska skola", 4, 1500.0, "trener2"),
+            ],
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
 def initialize_database(database_path=DATABASE_PATH):
     """Pravi data folder i osnovne tabele za korisnike ako ne postoje."""
     database_path = Path(database_path)
@@ -161,3 +240,7 @@ def initialize_database(database_path=DATABASE_PATH):
         connection.commit()
     finally:
         connection.close()
+
+
+
+# Remove-Item .\data\fitness.db - ovo je za brisanje baze u shellu se kuca

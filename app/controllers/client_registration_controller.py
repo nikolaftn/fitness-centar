@@ -32,4 +32,3 @@ class ClientRegistrationController:
         self.view.show_info("Registracija je uspesna. Mozete da se prijavite.")
         if self.on_registered:
             self.on_registered()
-        self.view.close()

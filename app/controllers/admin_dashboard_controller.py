@@ -14,19 +14,16 @@ class AdminDashboardController:
         self.view.show_registrations(registrations)
 
     def approve_selected(self):
-        self._decide_selected("approved", "odobrite")
+        self._decide_selected("approved")
 
     def reject_selected(self):
-        self._decide_selected("rejected", "odbijete")
+        self._decide_selected("rejected")
 
-    def _decide_selected(self, decision, action_text):
+    def _decide_selected(self, decision):
         trainer_id = self.view.get_selected_trainer_id()
         if trainer_id is None:
             self.view.show_error("Prvo izaberite zahtev trenera iz tabele.")
             return
-        if not self.view.confirm(f"Da li zelite da {action_text} izabrani zahtev?"):
-            return
-
         changed = self.trainer_repository.decide_registration(trainer_id, decision)
         if not changed:
             self.view.show_error("Zahtev vise nije na cekanju. Osvezite tabelu.")

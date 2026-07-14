@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import messagebox
 
 
 COMMON_FIELDS = (
@@ -48,16 +47,18 @@ class BaseRegistrationView:
             self.entries[field_name] = entry
 
         tk.Button(form, text="Potvrdi", command=self._submit).pack(fill="x", pady=(10, 0))
+        self.message_label = tk.Label(form, justify="left", wraplength=380)
+        self.message_label.pack(fill="x", pady=(12, 0))
         self.entries["username"].focus_set()
 
     def _submit(self):
         self.controller.submit({name: entry.get() for name, entry in self.entries.items()})
 
     def show_error(self, message):
-        messagebox.showerror(self.title, message, parent=self.window)
+        self.message_label.config(text=message, fg="firebrick")
 
     def show_info(self, message):
-        messagebox.showinfo(self.title, message, parent=self.window)
+        self.message_label.config(text=message, fg="darkgreen")
 
     def close(self):
         self.window.destroy()

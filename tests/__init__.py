@@ -1,1 +1,0 @@
-"""Automatski testovi aplikacije."""
