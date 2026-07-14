@@ -9,8 +9,8 @@ class AdminDashboardView:
         self.controller = controller
         self.window = tk.Toplevel(parent)
         self.window.title("Administrator")
-        self.window.geometry("920x520")
-        self.window.minsize(760, 420)
+        self.window.geometry("980x700")
+        self.window.minsize(820, 560)
 
         header = tk.Frame(self.window, padx=24, pady=18)
         header.pack(fill="x")
@@ -55,6 +55,40 @@ class AdminDashboardView:
         scrollbar.pack(side="right", fill="y")
         self.table.configure(yscrollcommand=scrollbar.set)
 
+        tk.Label(
+            self.window,
+            text="Treneri sortirani po prosecnoj oceni",
+            font=("Arial", 12, "bold"),
+            padx=24,
+            anchor="w",
+        ).pack(fill="x", pady=(14, 4))
+        ratings_frame = tk.Frame(self.window, padx=24)
+        ratings_frame.pack(fill="both", expand=True)
+        rating_columns = ("name", "username", "education", "average", "count")
+        self.ratings_table = ttk.Treeview(
+            ratings_frame,
+            columns=rating_columns,
+            show="headings",
+            selectmode="browse",
+            height=5,
+        )
+        rating_headings = {
+            "name": "Ime i prezime",
+            "username": "Korisnicko ime",
+            "education": "Obrazovanje",
+            "average": "Prosecna ocena",
+            "count": "Broj ocena",
+        }
+        for column in rating_columns:
+            self.ratings_table.heading(column, text=rating_headings[column])
+            self.ratings_table.column(column, width=150, anchor="w")
+        self.ratings_table.pack(side="left", fill="both", expand=True)
+        ratings_scrollbar = ttk.Scrollbar(
+            ratings_frame, orient="vertical", command=self.ratings_table.yview
+        )
+        ratings_scrollbar.pack(side="right", fill="y")
+        self.ratings_table.configure(yscrollcommand=ratings_scrollbar.set)
+
         self.message_label = tk.Label(self.window, padx=24, anchor="w")
         self.message_label.pack(fill="x", pady=(10, 0))
 
@@ -84,6 +118,23 @@ class AdminDashboardView:
                     registration.education,
                     registration.years_of_experience,
                     f"{registration.price_per_training:.2f}",
+                ),
+            )
+
+    def show_sorted_trainers(self, trainers):
+        for item in self.ratings_table.get_children():
+            self.ratings_table.delete(item)
+        for trainer in trainers:
+            self.ratings_table.insert(
+                "",
+                "end",
+                iid=str(trainer["id"]),
+                values=(
+                    f"{trainer['first_name']} {trainer['last_name']}",
+                    trainer["username"],
+                    trainer["education"] or "",
+                    trainer["average_rating"] or "Nema",
+                    trainer["rating_count"],
                 ),
             )
 

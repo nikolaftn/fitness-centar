@@ -91,6 +91,17 @@ def add_test_data(database_path=DATABASE_PATH):
                 ("Visoka sportska skola", 4, 1500.0, "trener2"),
             ],
         )
+        connection.executemany(
+            """
+            INSERT OR IGNORE INTO exercises (name, description)
+            VALUES (?, ?)
+            """,
+            [
+                ("Cucanj", "Osnovna vezba za noge i gluteus."),
+                ("Sklek", "Vezba za grudi, ramena i triceps."),
+                ("Plank", "Staticka vezba za stabilizaciju trupa."),
+            ],
+        )
         connection.commit()
     finally:
         connection.close()
@@ -181,7 +192,8 @@ def initialize_database(database_path=DATABASE_PATH):
             CREATE TABLE IF NOT EXISTS exercises (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
-                description TEXT
+                description TEXT,
+                video_url TEXT
             );
 
             CREATE TABLE IF NOT EXISTS exercise_equipment (
@@ -226,6 +238,70 @@ def initialize_database(database_path=DATABASE_PATH):
                 FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
                 FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS workout_ratings (
+                workout_id INTEGER NOT NULL,
+                client_id INTEGER NOT NULL,
+                rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                comment TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (workout_id, client_id),
+                FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
+                FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS exercise_ratings (
+                workout_id INTEGER NOT NULL,
+                exercise_id INTEGER NOT NULL,
+                client_id INTEGER NOT NULL,
+                rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                comment TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (workout_id, exercise_id, client_id),
+                FOREIGN KEY (workout_id, exercise_id)
+                    REFERENCES workout_exercises(workout_id, exercise_id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS exercise_submissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                workout_id INTEGER NOT NULL,
+                exercise_id INTEGER NOT NULL,
+                client_id INTEGER NOT NULL,
+                video_url TEXT NOT NULL,
+                comment TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (workout_id, exercise_id)
+                    REFERENCES workout_exercises(workout_id, exercise_id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trainer_id INTEGER NOT NULL,
+                client_id INTEGER NOT NULL,
+                amount REAL NOT NULL CHECK (amount >= 0),
+                period TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'paid'
+                    CHECK (status IN ('paid', 'pending', 'failed')),
+                paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (trainer_id, client_id, period),
+                FOREIGN KEY (trainer_id, client_id)
+                    REFERENCES trainer_client_relations(trainer_id, client_id)
+                    ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_id INTEGER NOT NULL,
+                receiver_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+            );
             """
         )
 
@@ -237,6 +313,13 @@ def initialize_database(database_path=DATABASE_PATH):
             connection.execute(
                 "ALTER TABLE users RENAME COLUMN password_hash TO password"
             )
+
+        exercise_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(exercises)").fetchall()
+        }
+        if "video_url" not in exercise_columns:
+            connection.execute("ALTER TABLE exercises ADD COLUMN video_url TEXT")
         connection.commit()
     finally:
         connection.close()

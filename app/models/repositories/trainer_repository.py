@@ -60,3 +60,28 @@ class TrainerRepository:
             return cursor.rowcount == 1
         finally:
             connection.close()
+
+    def list_trainers_by_average_rating(self):
+        connection = self.connection_factory()
+        try:
+            return connection.execute(
+                """
+                SELECT users.id, users.username, users.first_name, users.last_name,
+                       trainer_profiles.education,
+                       ROUND(AVG(trainer_ratings.rating), 2) AS average_rating,
+                       COUNT(trainer_ratings.rating) AS rating_count
+                FROM users
+                JOIN trainer_profiles ON trainer_profiles.user_id = users.id
+                LEFT JOIN trainer_ratings ON trainer_ratings.trainer_id = users.id
+                WHERE users.role = 'trainer'
+                  AND users.registration_status = 'approved'
+                GROUP BY users.id
+                ORDER BY average_rating IS NULL,
+                         average_rating DESC,
+                         rating_count DESC,
+                         users.last_name,
+                         users.first_name
+                """
+            ).fetchall()
+        finally:
+            connection.close()

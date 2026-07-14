@@ -12,6 +12,8 @@ class AdminDashboardController:
     def refresh(self):
         registrations = self.trainer_repository.list_pending_registrations()
         self.view.show_registrations(registrations)
+        trainers = self.trainer_repository.list_trainers_by_average_rating()
+        self.view.show_sorted_trainers(trainers)
 
     def approve_selected(self):
         self._decide_selected("approved")

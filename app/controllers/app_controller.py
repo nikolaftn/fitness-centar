@@ -7,6 +7,7 @@ from app.controllers.role_dashboard_controllers import (
     TrainerDashboardController,
 )
 from app.controllers.trainer_registration_controller import TrainerRegistrationController
+from app.models.repositories.fitness_repository import FitnessRepository
 from app.models.repositories.trainer_repository import TrainerRepository
 from app.models.repositories.user_repository import UserRepository
 from app.views.main_view import MainView
@@ -18,6 +19,7 @@ class AppController:
     def __init__(self):
         self.user_repository = UserRepository()
         self.trainer_repository = TrainerRepository()
+        self.fitness_repository = FitnessRepository()
         self.view = MainView(self)
 
     def run(self):
@@ -63,6 +65,15 @@ class AppController:
                 self.view.root, user, self.trainer_repository
             )
         elif user.role == "trainer":
-            TrainerDashboardController(self.view.root, user)
+            TrainerDashboardController(
+                self.view.root,
+                user,
+                self.fitness_repository,
+            )
         elif user.role == "client":
-            ClientDashboardController(self.view.root, user)
+            ClientDashboardController(
+                self.view.root,
+                user,
+                self.fitness_repository,
+                self.user_repository,
+            )

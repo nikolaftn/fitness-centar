@@ -257,3 +257,19 @@ class UserRepository:
             return self._to_user(row)
         finally:
             connection.close()
+
+    def update_profile(self, user_id, first_name, last_name, birth_date):
+        connection = self.connection_factory()
+        try:
+            connection.execute(
+                """
+                UPDATE users
+                SET first_name = ?, last_name = ?, birth_date = ?
+                WHERE id = ?
+                """,
+                (first_name, last_name, birth_date, user_id),
+            )
+            connection.commit()
+            return self._find_by_id(connection, user_id)
+        finally:
+            connection.close()
