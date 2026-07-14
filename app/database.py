@@ -18,7 +18,7 @@ def get_connection(database_path=DATABASE_PATH):
 
 
 def add_test_data(database_path=DATABASE_PATH):
-    """Dodaje osnovne test naloge ako vec ne postoje."""
+    """Dodaje kompletne test podatke za proveru klijentskih i trenerskih funkcija."""
     connection = get_connection(database_path)
 
     try:
@@ -30,9 +30,10 @@ def add_test_data(database_path=DATABASE_PATH):
             )
             SELECT 'admin', 'admin', 'Glavni', 'Administrator', '1980-01-01',
                    'admin123', 'approved'
-            WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin')
+            WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin')
             """
         )
+
         connection.executemany(
             """
             INSERT OR IGNORE INTO users (
@@ -41,71 +42,268 @@ def add_test_data(database_path=DATABASE_PATH):
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                (
-                    "trener1",
-                    "trainer",
-                    "Marko",
-                    "Markovic",
-                    "1988-05-14",
-                    "trener123",
-                    "approved",
-                ),
-                (
-                    "trener2",
-                    "trainer",
-                    "Ana",
-                    "Anic",
-                    "1992-09-22",
-                    "trener123",
-                    "pending",
-                ),
-                (
-                    "klijent1",
-                    "client",
-                    "Petar",
-                    "Petrovic",
-                    "2001-03-10",
-                    "klijent123",
-                    "approved",
-                ),
-                (
-                    "klijent2",
-                    "client",
-                    "Jelena",
-                    "Jovanovic",
-                    "1999-11-08",
-                    "klijent123",
-                    "approved",
-                ),
+                ("trener1", "trainer", "Marko", "Markovic", "1988-05-14", "trener123", "approved"),
+                ("trener2", "trainer", "Ana", "Anic", "1992-09-22", "trener123", "approved"),
+                ("trener_pending", "trainer", "Nikola", "Nikolic", "1995-02-18", "trener123", "pending"),
+                ("trener_rejected", "trainer", "Milan", "Milic", "1990-07-11", "trener123", "rejected"),
+                ("klijent1", "client", "Petar", "Petrovic", "2001-03-10", "klijent123", "approved"),
+                ("klijent2", "client", "Jelena", "Jovanovic", "1999-11-08", "klijent123", "approved"),
+                ("klijent3", "client", "Luka", "Lukic", "2002-06-15", "klijent123", "approved"),
+                ("klijent4", "client", "Sara", "Saric", "2000-12-03", "klijent123", "approved"),
             ],
         )
+
         connection.executemany(
             """
-            INSERT OR IGNORE INTO trainer_profiles (
-                user_id, education, years_of_experience, price_per_training
+            INSERT INTO trainer_profiles (
+                user_id, education, diploma_license, biography,
+                years_of_experience, price_per_training
             )
-            SELECT id, ?, ?, ? FROM users WHERE username = ?
+            SELECT id, ?, ?, ?, ?, ? FROM users WHERE username = ?
+            ON CONFLICT(user_id) DO UPDATE SET
+                education=excluded.education,
+                diploma_license=excluded.diploma_license,
+                biography=excluded.biography,
+                years_of_experience=excluded.years_of_experience,
+                price_per_training=excluded.price_per_training
             """,
             [
-                ("Fakultet sporta", 8, 2000.0, "trener1"),
-                ("Visoka sportska skola", 4, 1500.0, "trener2"),
+                ("Fakultet sporta i fizickog vaspitanja", "FIT-2020-001", "Trener snage i kondicije.", 8, 2000.0, "trener1"),
+                ("Visoka sportska skola", "LIC-2022-114", "Pilates, mobilnost i funkcionalni trening.", 4, 1500.0, "trener2"),
+                ("Fakultet sporta", "CEKA-PROVERU", "Zahtev ceka odobrenje administratora.", 2, 1200.0, "trener_pending"),
+                ("Kurs fitnes instruktora", "ODBIJENA-LICENCA", "Primer odbijenog zahteva.", 1, 1000.0, "trener_rejected"),
             ],
         )
+
+        connection.executemany(
+            """INSERT OR IGNORE INTO equipment(name, category, description)
+               VALUES (?, ?, ?)""",
+            [
+                ("Traka za trcanje", "machine", "Kardio sprava sa podesavanjem brzine."),
+                ("Leg press", "machine", "Sprava za trening nogu."),
+                ("Lat masina", "machine", "Sprava za ledja."),
+                ("Bucice", "prop", "Par bucica razlicitih tezina."),
+                ("Prostirka", "prop", "Prostirka za vezbe na podu."),
+                ("Elasticna traka", "prop", "Rekvizit za aktivaciju i mobilnost."),
+            ],
+        )
+
         connection.executemany(
             """
-            INSERT OR IGNORE INTO exercises (name, description)
-            VALUES (?, ?)
+            INSERT INTO exercises(name, description, video_url, duration_minutes)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                description=excluded.description,
+                video_url=excluded.video_url,
+                duration_minutes=excluded.duration_minutes
             """,
             [
-                ("Cucanj", "Osnovna vezba za noge i gluteus."),
-                ("Sklek", "Vezba za grudi, ramena i triceps."),
-                ("Plank", "Staticka vezba za stabilizaciju trupa."),
+                ("Cucanj", "Osnovna vezba za noge i gluteus.", "https://example.com/video/cucanj", 10),
+                ("Sklek", "Vezba za grudi, ramena i triceps.", "https://example.com/video/sklek", 8),
+                ("Plank", "Staticka vezba za stabilizaciju trupa.", "https://example.com/video/plank", 5),
+                ("Iskorak", "Jednonozna vezba za noge i ravnotezu.", "https://example.com/video/iskorak", 10),
+                ("Veslanje bucicama", "Vezba za ledja uz bucice.", "https://example.com/video/veslanje", 12),
             ],
         )
+
+        # Povezivanje vezbi i opreme.
+        connection.executemany(
+            """
+            INSERT OR IGNORE INTO exercise_equipment(exercise_id, equipment_id)
+            SELECT e.id, q.id FROM exercises e, equipment q
+            WHERE e.name=? AND q.name=?
+            """,
+            [
+                ("Cucanj", "Elasticna traka"),
+                ("Sklek", "Prostirka"),
+                ("Plank", "Prostirka"),
+                ("Iskorak", "Bucice"),
+                ("Veslanje bucicama", "Bucice"),
+            ],
+        )
+
+        # Odnosi: prihvacen, na cekanju, odbijen i klijent sa dva propustena treninga.
+        connection.executemany(
+            """
+            INSERT INTO trainer_client_relations(
+                trainer_id, client_id, monthly_price, expiration_date, status,
+                workouts_per_week, goals, height_cm, weight_kg,
+                training_location, health_conditions
+            )
+            SELECT t.id, c.id, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            FROM users t, users c WHERE t.username=? AND c.username=?
+            ON CONFLICT(trainer_id, client_id) DO UPDATE SET
+                monthly_price=excluded.monthly_price,
+                expiration_date=excluded.expiration_date,
+                status=excluded.status,
+                workouts_per_week=excluded.workouts_per_week,
+                goals=excluded.goals,
+                height_cm=excluded.height_cm,
+                weight_kg=excluded.weight_kg,
+                training_location=excluded.training_location,
+                health_conditions=excluded.health_conditions
+            """,
+            [
+                (24000.0, "2026-08-31", "accepted", 3, "Povecanje snage i misicne mase", 182, 82, "gym", "Nema", "trener1", "klijent1"),
+                (16000.0, None, "pending", 2, "Mrsavljenje 6 kg", 168, 73, "both", "Povremeni bol u kolenu", "trener1", "klijent2"),
+                (16000.0, "2026-08-31", "accepted", 2, "Bolja kondicija", 178, 91, "gym", "Nema", "trener1", "klijent3"),
+                (12000.0, "2026-08-31", "accepted", 2, "Mobilnost i drzanje", 165, 58, "home", "Blaga skolioza", "trener2", "klijent4"),
+                (6000.0, None, "rejected", 1, "Pocetnicki program", 170, 65, "home", "Nema", "trener2", "klijent2"),
+            ],
+        )
+
+        # Programi se dodaju samo ako vec ne postoje.
+        connection.execute(
+            """
+            INSERT INTO programs(trainer_id, client_id, name, description)
+            SELECT t.id, c.id, 'Program snage - Petar', 'Program za tri treninga nedeljno.'
+            FROM users t, users c
+            WHERE t.username='trener1' AND c.username='klijent1'
+              AND NOT EXISTS (SELECT 1 FROM programs WHERE name='Program snage - Petar')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO programs(trainer_id, client_id, name, description)
+            SELECT t.id, c.id, 'Program kondicije - Luka', 'Test program sa dva propustena treninga.'
+            FROM users t, users c
+            WHERE t.username='trener1' AND c.username='klijent3'
+              AND NOT EXISTS (SELECT 1 FROM programs WHERE name='Program kondicije - Luka')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO programs(trainer_id, client_id, name, description)
+            SELECT t.id, c.id, 'Kucni program - Sara', 'Mobilnost i stabilizacija kod kuce.'
+            FROM users t, users c
+            WHERE t.username='trener2' AND c.username='klijent4'
+              AND NOT EXISTS (SELECT 1 FROM programs WHERE name='Kucni program - Sara')
+            """
+        )
+
+        workouts = [
+            ("Program snage - Petar", "Trening A - noge", "2026-07-10", "completed"),
+            ("Program snage - Petar", "Trening B - gornji deo", "2026-07-16", "assigned"),
+            ("Program kondicije - Luka", "Kardio 1", "2026-07-01", "missed"),
+            ("Program kondicije - Luka", "Kardio 2", "2026-07-05", "missed"),
+            ("Kucni program - Sara", "Mobilnost 1", "2026-07-15", "assigned"),
+        ]
+        for program_name, workout_name, date, status in workouts:
+            connection.execute(
+                """
+                INSERT INTO workouts(program_id, name, scheduled_date, status)
+                SELECT p.id, ?, ?, ? FROM programs p WHERE p.name=?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM workouts w WHERE w.program_id=p.id AND w.name=?
+                  )
+                """,
+                (workout_name, date, status, program_name, workout_name),
+            )
+
+        workout_exercises = [
+            ("Trening A - noge", "Cucanj", 1, 4, 10, None),
+            ("Trening A - noge", "Iskorak", 2, 3, 12, None),
+            ("Trening B - gornji deo", "Sklek", 1, 4, 12, None),
+            ("Trening B - gornji deo", "Veslanje bucicama", 2, 4, 10, None),
+            ("Kardio 1", "Plank", 1, 3, None, 2),
+            ("Kardio 2", "Cucanj", 1, 3, 15, None),
+            ("Mobilnost 1", "Plank", 1, 3, None, 2),
+        ]
+        for workout_name, exercise_name, order_no, sets, reps, duration in workout_exercises:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO workout_exercises(
+                    workout_id, exercise_id, exercise_order, sets,
+                    repetitions, duration_minutes
+                )
+                SELECT w.id, e.id, ?, ?, ?, ? FROM workouts w, exercises e
+                WHERE w.name=? AND e.name=?
+                """,
+                (order_no, sets, reps, duration, workout_name, exercise_name),
+            )
+
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO workout_ratings(workout_id, client_id, rating, comment)
+            SELECT w.id, c.id, 5, 'Odlican trening, intenzitet je bio taman.'
+            FROM workouts w, users c
+            WHERE w.name='Trening A - noge' AND c.username='klijent1'
+            """
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO exercise_ratings(workout_id, exercise_id, client_id, rating, comment)
+            SELECT w.id, e.id, c.id, 4, 'Cucanj je dobar, ali je poslednja serija bila teska.'
+            FROM workouts w, exercises e, users c
+            WHERE w.name='Trening A - noge' AND e.name='Cucanj' AND c.username='klijent1'
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO exercise_submissions(workout_id, exercise_id, client_id, video_url, comment)
+            SELECT w.id, e.id, c.id, 'https://example.com/uploads/petar-cucanj.mp4',
+                   'Molim proveru dubine cucnja.'
+            FROM workouts w, exercises e, users c
+            WHERE w.name='Trening A - noge' AND e.name='Cucanj' AND c.username='klijent1'
+              AND NOT EXISTS (
+                  SELECT 1 FROM exercise_submissions s
+                  WHERE s.workout_id=w.id AND s.exercise_id=e.id AND s.client_id=c.id
+              )
+            """
+        )
+
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO trainer_ratings(client_id, trainer_id, rating, comment)
+            SELECT c.id, t.id, 5, 'Strucan trener i veoma jasan program.'
+            FROM users c, users t
+            WHERE c.username='klijent1' AND t.username='trener1'
+            """
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO client_ratings(trainer_id, client_id, rating, comment)
+            SELECT t.id, c.id, 4, 'Redovan, motivisan i dobro prihvata sugestije.'
+            FROM users t, users c
+            WHERE t.username='trener1' AND c.username='klijent1'
+            """
+        )
+
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO payments(trainer_id, client_id, amount, period, status)
+            SELECT t.id, c.id, 24000, '2026-07', 'paid'
+            FROM users t, users c
+            WHERE t.username='trener1' AND c.username='klijent1'
+            """
+        )
+
+        messages = [
+            ("klijent1", "trener1", "Zdravo, poslao sam snimak cucnja. Mozes li da proveris tehniku?"),
+            ("trener1", "klijent1", "Video je stigao. Obrati paznju da kolena prate pravac stopala."),
+            ("klijent4", "trener2", "Da li mobilnost mogu da radim svako jutro?"),
+            ("trener2", "klijent4", "Mozes, ali radi lagano i bez bola."),
+        ]
+        for sender, receiver, text in messages:
+            connection.execute(
+                """
+                INSERT INTO messages(sender_id, receiver_id, text)
+                SELECT s.id, r.id, ? FROM users s, users r
+                WHERE s.username=? AND r.username=?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM messages m
+                      WHERE m.sender_id=s.id AND m.receiver_id=r.id AND m.text=?
+                  )
+                """,
+                (text, sender, receiver, text),
+            )
+
         connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
     finally:
         connection.close()
-
 
 def initialize_database(database_path=DATABASE_PATH):
     """Pravi data folder i osnovne tabele za korisnike ako ne postoje."""
@@ -132,6 +330,8 @@ def initialize_database(database_path=DATABASE_PATH):
             CREATE TABLE IF NOT EXISTS trainer_profiles (
                 user_id INTEGER PRIMARY KEY,
                 education TEXT,
+                diploma_license TEXT,
+                biography TEXT,
                 years_of_experience INTEGER NOT NULL DEFAULT 0
                     CHECK (years_of_experience >= 0),
                 price_per_training REAL NOT NULL
@@ -193,7 +393,8 @@ def initialize_database(database_path=DATABASE_PATH):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 description TEXT,
-                video_url TEXT
+                video_url TEXT,
+                duration_minutes INTEGER CHECK (duration_minutes > 0)
             );
 
             CREATE TABLE IF NOT EXISTS exercise_equipment (
@@ -320,6 +521,25 @@ def initialize_database(database_path=DATABASE_PATH):
         }
         if "video_url" not in exercise_columns:
             connection.execute("ALTER TABLE exercises ADD COLUMN video_url TEXT")
+        if "duration_minutes" not in exercise_columns:
+            connection.execute(
+                "ALTER TABLE exercises ADD COLUMN duration_minutes INTEGER"
+            )
+
+        trainer_profile_columns = {
+            row["name"]
+            for row in connection.execute(
+                "PRAGMA table_info(trainer_profiles)"
+            ).fetchall()
+        }
+        if "diploma_license" not in trainer_profile_columns:
+            connection.execute(
+                "ALTER TABLE trainer_profiles ADD COLUMN diploma_license TEXT"
+            )
+        if "biography" not in trainer_profile_columns:
+            connection.execute(
+                "ALTER TABLE trainer_profiles ADD COLUMN biography TEXT"
+            )
         connection.commit()
     finally:
         connection.close()
