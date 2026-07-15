@@ -10,7 +10,7 @@ from app.models.repositories.fitness_repository import FitnessRepository
 from app.models.repositories.trainer_repository import TrainerRepository
 from app.models.repositories.user_repository import UserRepository
 from app.models.services.admin_service import AdminService
-from app.models.services.auth_service import AuthService
+from app.models.services.login_service import LoginService
 from app.models.services.fitness_service import FitnessService
 from app.models.services.registration_service import RegistrationService
 from app.views.main_view import MainView
@@ -23,7 +23,7 @@ class AppController:
         self.user_repository = UserRepository()
         self.trainer_repository = TrainerRepository()
         self.fitness_repository = FitnessRepository()
-        self.auth_service = AuthService(self.user_repository)
+        self.login_service = LoginService(self.user_repository)
         self.registration_service = RegistrationService(self.user_repository)
         self.admin_service = AdminService(self.trainer_repository)
         self.fitness_service = FitnessService(
@@ -37,7 +37,7 @@ class AppController:
     def open_login(self):
         LoginController(
             self.view.root,
-            self.auth_service,
+            self.login_service,
             on_login=self.open_dashboard,
         )
 

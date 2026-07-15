@@ -1,4 +1,4 @@
-class AuthService:
+class LoginService:
     def __init__(self, user_repository):
         self.user_repository = user_repository
 
@@ -15,4 +15,3 @@ class AuthService:
         if user.registration_status == "rejected":
             raise ValueError("Zahtev za registraciju je odbijen.")
         return user
-
