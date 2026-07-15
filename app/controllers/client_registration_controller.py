@@ -6,9 +6,8 @@ from app.views.registration_views import ClientRegistrationView
 class ClientRegistrationController:
     """Registruje klijenta koji odmah dobija odobren nalog."""
 
-    def __init__(self, parent, user_repository, on_registered=None):
+    def __init__(self, parent, user_repository):
         self.user_repository = user_repository
-        self.on_registered = on_registered
         self.view = ClientRegistrationView(parent, self)
 
     def submit(self, data):
@@ -30,5 +29,3 @@ class ClientRegistrationController:
             return
 
         self.view.show_info("Registracija je uspesna. Mozete da se prijavite.")
-        if self.on_registered:
-            self.on_registered()

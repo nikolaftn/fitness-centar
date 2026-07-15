@@ -176,9 +176,8 @@ class FitnessRepository:
                        r.height_cm, r.weight_kg, r.training_location,
                        r.health_conditions,
                        (SELECT COUNT(*) FROM workouts w
-                        JOIN programs p ON p.id=w.program_id
-                        WHERE p.trainer_id=r.trainer_id
-                          AND p.client_id=r.client_id
+                        WHERE w.trainer_id=r.trainer_id
+                          AND w.client_id=r.client_id
                           AND w.status='missed') AS missed_count
                 FROM trainer_client_relations r
                 JOIN users u ON u.id=r.client_id
@@ -194,34 +193,41 @@ class FitnessRepository:
         connection = self.connection_factory()
         try:
             return connection.execute(
-                """SELECT id, name, description, video_url, duration_minutes
-                   FROM exercises ORDER BY name"""
+                """SELECT e.id, e.name, e.description, e.video_url,
+                          e.duration_minutes, e.equipment_id,
+                          q.name AS equipment_name
+                   FROM exercises e
+                   LEFT JOIN equipment q ON q.id = e.equipment_id
+                   ORDER BY e.name"""
             ).fetchall()
         finally:
             connection.close()
 
-    def save_exercise(self, exercise_id, name, description, video_url, duration_minutes):
+    def save_exercise(self, exercise_id, name, description, video_url,
+                      duration_minutes, equipment_id):
         connection = self.connection_factory()
         try:
             if exercise_id:
                 connection.execute(
                     """UPDATE exercises SET name=?, description=?, video_url=?,
-                       duration_minutes=? WHERE id=?""",
+                       duration_minutes=?, equipment_id=? WHERE id=?""",
                     (name, description or None, video_url or None,
-                     duration_minutes, exercise_id),
+                     duration_minutes, equipment_id, exercise_id),
                 )
             else:
                 connection.execute(
-                    """INSERT INTO exercises(name, description, video_url, duration_minutes)
-                       VALUES (?, ?, ?, ?)""",
-                    (name, description or None, video_url or None, duration_minutes),
+                    """INSERT INTO exercises(
+                           name, description, video_url, duration_minutes, equipment_id
+                       ) VALUES (?, ?, ?, ?, ?)""",
+                    (name, description or None, video_url or None,
+                     duration_minutes, equipment_id),
                 )
             connection.commit()
         finally:
             connection.close()
 
     def create_exercise(self, name, description, video_url):
-        self.save_exercise(None, name, description, video_url, None)
+        self.save_exercise(None, name, description, video_url, None, None)
 
     def delete_exercise(self, exercise_id):
         connection = self.connection_factory()
@@ -266,13 +272,12 @@ class FitnessRepository:
         finally:
             connection.close()
 
-    # -------------------------- PROGRAMI/TRENINZI -----------------------
+    # ------------------------------ TRENINZI ----------------------------
     def _ensure_assignment_allowed(self, connection, trainer_id, client_id):
         missed = connection.execute(
             """
             SELECT COUNT(*) AS total FROM workouts w
-            JOIN programs p ON p.id=w.program_id
-            WHERE p.trainer_id=? AND p.client_id=? AND w.status='missed'
+            WHERE w.trainer_id=? AND w.client_id=? AND w.status='missed'
             """, (trainer_id, client_id)
         ).fetchone()["total"]
         if missed >= 2:
@@ -281,9 +286,8 @@ class FitnessRepository:
                 "Dodeljivanje novih treninga je automatski blokirano."
             )
 
-    def create_program_with_workout(self, trainer_id, client_id, program_name,
-                                    workout_name, exercise_ids, scheduled_date=None,
-                                    program_description=""):
+    def create_workout(self, trainer_id, client_id, workout_name, exercise_ids,
+                       scheduled_date=None):
         connection = self.connection_factory()
         try:
             self._ensure_assignment_allowed(connection, trainer_id, client_id)
@@ -295,13 +299,9 @@ class FitnessRepository:
             if relation is None:
                 raise ValueError("Klijent nije prihvacen kod ovog trenera.")
             cursor = connection.execute(
-                "INSERT INTO programs(trainer_id, client_id, name, description) VALUES (?, ?, ?, ?)",
-                (trainer_id, client_id, program_name, program_description or None),
-            )
-            program_id = cursor.lastrowid
-            cursor = connection.execute(
-                "INSERT INTO workouts(program_id, name, scheduled_date) VALUES (?, ?, ?)",
-                (program_id, workout_name, scheduled_date or None),
+                """INSERT INTO workouts(trainer_id, client_id, name, scheduled_date)
+                   VALUES (?, ?, ?, ?)""",
+                (trainer_id, client_id, workout_name, scheduled_date or None),
             )
             workout_id = cursor.lastrowid
             connection.executemany(
@@ -321,11 +321,10 @@ class FitnessRepository:
             return connection.execute(
                 """
                 SELECT w.id, w.name, w.scheduled_date, w.status,
-                       p.id AS program_id, p.name AS program_name,
-                       p.client_id, u.first_name || ' ' || u.last_name AS client_name
-                FROM workouts w JOIN programs p ON p.id=w.program_id
-                JOIN users u ON u.id=p.client_id
-                WHERE p.trainer_id=? ORDER BY w.id DESC
+                       w.client_id, u.first_name || ' ' || u.last_name AS client_name
+                FROM workouts w
+                JOIN users u ON u.id=w.client_id
+                WHERE w.trainer_id=? ORDER BY w.id DESC
                 """, (trainer_id,)
             ).fetchall()
         finally:
@@ -337,24 +336,23 @@ class FitnessRepository:
         connection = self.connection_factory()
         try:
             connection.execute(
-                """UPDATE workouts SET status=? WHERE id=? AND program_id IN
-                   (SELECT id FROM programs WHERE trainer_id=?)""",
+                "UPDATE workouts SET status=? WHERE id=? AND trainer_id=?",
                 (status, workout_id, trainer_id),
             )
             connection.commit()
         finally:
             connection.close()
 
-    def copy_program_to_client(self, trainer_id, source_program_id, target_client_id):
+    def copy_workout_to_client(self, trainer_id, source_workout_id, target_client_id):
         connection = self.connection_factory()
         try:
             self._ensure_assignment_allowed(connection, trainer_id, target_client_id)
-            program = connection.execute(
-                "SELECT * FROM programs WHERE id=? AND trainer_id=?",
-                (source_program_id, trainer_id),
+            workout = connection.execute(
+                "SELECT * FROM workouts WHERE id=? AND trainer_id=?",
+                (source_workout_id, trainer_id),
             ).fetchone()
-            if program is None:
-                raise ValueError("Program nije pronadjen.")
+            if workout is None:
+                raise ValueError("Trening nije pronadjen.")
             relation = connection.execute(
                 """SELECT 1 FROM trainer_client_relations
                    WHERE trainer_id=? AND client_id=? AND status='accepted'""",
@@ -363,31 +361,24 @@ class FitnessRepository:
             if relation is None:
                 raise ValueError("Ciljni klijent nije prihvacen.")
             cursor = connection.execute(
-                "INSERT INTO programs(trainer_id, client_id, name, description) VALUES (?, ?, ?, ?)",
-                (trainer_id, target_client_id, program["name"] + " - kopija", program["description"]),
+                """INSERT INTO workouts(trainer_id, client_id, name, scheduled_date, status)
+                   VALUES (?, ?, ?, ?, 'assigned')""",
+                (trainer_id, target_client_id, workout["name"] + " - kopija",
+                 workout["scheduled_date"]),
             )
-            new_program_id = cursor.lastrowid
-            workouts = connection.execute(
-                "SELECT * FROM workouts WHERE program_id=? ORDER BY id", (source_program_id,)
+            new_workout_id = cursor.lastrowid
+            exercises = connection.execute(
+                "SELECT * FROM workout_exercises WHERE workout_id=? ORDER BY exercise_order",
+                (source_workout_id,),
             ).fetchall()
-            for workout in workouts:
-                cursor = connection.execute(
-                    "INSERT INTO workouts(program_id, name, scheduled_date, status) VALUES (?, ?, ?, 'assigned')",
-                    (new_program_id, workout["name"], workout["scheduled_date"]),
-                )
-                new_workout_id = cursor.lastrowid
-                exercises = connection.execute(
-                    "SELECT * FROM workout_exercises WHERE workout_id=? ORDER BY exercise_order",
-                    (workout["id"],),
-                ).fetchall()
-                connection.executemany(
-                    """INSERT INTO workout_exercises(workout_id, exercise_id,
-                       exercise_order, sets, repetitions, duration_minutes)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    [(new_workout_id, e["exercise_id"], e["exercise_order"],
-                      e["sets"], e["repetitions"], e["duration_minutes"])
-                     for e in exercises],
-                )
+            connection.executemany(
+                """INSERT INTO workout_exercises(workout_id, exercise_id,
+                   exercise_order, sets, repetitions, duration_minutes)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                [(new_workout_id, exercise["exercise_id"], exercise["exercise_order"],
+                  exercise["sets"], exercise["repetitions"], exercise["duration_minutes"])
+                 for exercise in exercises],
+            )
             connection.commit()
         except Exception:
             connection.rollback()
@@ -401,14 +392,14 @@ class FitnessRepository:
             return connection.execute(
                 """
                 SELECT w.id, w.name, w.scheduled_date, w.status,
-                       p.name AS program_name, t.id AS trainer_id,
+                       t.id AS trainer_id,
                        t.first_name || ' ' || t.last_name AS trainer_name,
                        wr.rating AS workout_rating, tr.rating AS trainer_rating
-                FROM workouts w JOIN programs p ON p.id=w.program_id
-                JOIN users t ON t.id=p.trainer_id
-                LEFT JOIN workout_ratings wr ON wr.workout_id=w.id AND wr.client_id=p.client_id
-                LEFT JOIN trainer_ratings tr ON tr.trainer_id=p.trainer_id AND tr.client_id=p.client_id
-                WHERE p.client_id=? ORDER BY w.id DESC
+                FROM workouts w
+                JOIN users t ON t.id=w.trainer_id
+                LEFT JOIN workout_ratings wr ON wr.workout_id=w.id AND wr.client_id=w.client_id
+                LEFT JOIN trainer_ratings tr ON tr.trainer_id=w.trainer_id AND tr.client_id=w.client_id
+                WHERE w.client_id=? ORDER BY w.id DESC
                 """, (client_id,)
             ).fetchall()
         finally:
@@ -420,35 +411,15 @@ class FitnessRepository:
             return connection.execute(
                 """
                 SELECT e.id, e.name, e.description, e.video_url,
+                       q.name AS equipment_name,
                        COALESCE(we.duration_minutes, e.duration_minutes) AS duration_minutes,
-                       we.exercise_order, er.rating, er.comment,
-                       (SELECT video_url FROM exercise_submissions s
-                        WHERE s.workout_id=we.workout_id AND s.exercise_id=we.exercise_id
-                          AND s.client_id=? ORDER BY s.created_at DESC LIMIT 1) AS submitted_video
+                       we.exercise_order, er.rating, er.comment
                 FROM workout_exercises we JOIN exercises e ON e.id=we.exercise_id
+                LEFT JOIN equipment q ON q.id=e.equipment_id
                 LEFT JOIN exercise_ratings er ON er.workout_id=we.workout_id
                   AND er.exercise_id=we.exercise_id AND er.client_id=?
                 WHERE we.workout_id=? ORDER BY we.exercise_order
-                """, (client_id, client_id, workout_id)
-            ).fetchall()
-        finally:
-            connection.close()
-
-    def list_exercise_submissions_for_trainer(self, trainer_id):
-        connection = self.connection_factory()
-        try:
-            return connection.execute(
-                """
-                SELECT s.id, s.video_url, s.comment, s.created_at,
-                       c.first_name || ' ' || c.last_name AS client_name,
-                       e.name AS exercise_name, w.name AS workout_name
-                FROM exercise_submissions s
-                JOIN users c ON c.id=s.client_id
-                JOIN exercises e ON e.id=s.exercise_id
-                JOIN workouts w ON w.id=s.workout_id
-                JOIN programs p ON p.id=w.program_id
-                WHERE p.trainer_id=? ORDER BY s.created_at DESC
-                """, (trainer_id,)
+                """, (client_id, workout_id)
             ).fetchall()
         finally:
             connection.close()
@@ -508,18 +479,6 @@ class FitnessRepository:
         finally:
             connection.close()
 
-    def submit_exercise_video(self, workout_id, exercise_id, client_id, video_url, comment):
-        connection = self.connection_factory()
-        try:
-            connection.execute(
-                """INSERT INTO exercise_submissions(workout_id, exercise_id, client_id, video_url, comment)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (workout_id, exercise_id, client_id, video_url, comment or None),
-            )
-            connection.commit()
-        finally:
-            connection.close()
-
     # --------------------- INTERNE OCENE KLIJENATA ----------------------
     def save_client_rating(self, trainer_id, client_id, rating, comment):
         connection = self.connection_factory()
@@ -553,7 +512,7 @@ class FitnessRepository:
             connection.close()
 
     # ----------------------- PLACANJA I PORUKE -------------------------
-    def pay_monthly_subscription(self, trainer_id, client_id, period):
+    def pay_monthly_subscription(self, trainer_id, client_id):
         connection = self.connection_factory()
         try:
             relation = connection.execute(
@@ -563,12 +522,23 @@ class FitnessRepository:
             ).fetchone()
             if relation is None:
                 raise ValueError("Nemate prihvacen odnos sa trenerom.")
+            active_payment = connection.execute(
+                """SELECT valid_until FROM payments
+                   WHERE trainer_id=? AND client_id=? AND status='paid'
+                     AND valid_until > CURRENT_TIMESTAMP
+                   ORDER BY valid_until DESC LIMIT 1""",
+                (trainer_id, client_id),
+            ).fetchone()
+            if active_payment:
+                raise ValueError(
+                    f"Clanarina vec vazi do {active_payment['valid_until']}."
+                )
             connection.execute(
-                """INSERT INTO payments(trainer_id, client_id, amount, period, status)
-                   VALUES (?, ?, ?, ?, 'paid')
-                   ON CONFLICT(trainer_id, client_id, period) DO UPDATE SET
-                   amount=excluded.amount, status='paid', paid_at=CURRENT_TIMESTAMP""",
-                (trainer_id, client_id, relation["monthly_price"], period),
+                """INSERT INTO payments(
+                       trainer_id, client_id, amount, status, paid_at, valid_until
+                   ) VALUES (?, ?, ?, 'paid', CURRENT_TIMESTAMP,
+                             datetime(CURRENT_TIMESTAMP, '+1 month'))""",
+                (trainer_id, client_id, relation["monthly_price"]),
             )
             connection.commit()
         finally:

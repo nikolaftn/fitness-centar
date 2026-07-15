@@ -6,9 +6,8 @@ from app.views.registration_views import TrainerRegistrationView
 class TrainerRegistrationController:
     """Kreira zahtev trenera koji administrator naknadno odobrava."""
 
-    def __init__(self, parent, user_repository, on_registered=None):
+    def __init__(self, parent, user_repository):
         self.user_repository = user_repository
-        self.on_registered = on_registered
         self.view = TrainerRegistrationView(parent, self)
 
     def submit(self, data):
@@ -45,5 +44,3 @@ class TrainerRegistrationController:
             return
 
         self.view.show_info("Zahtev je poslat i ceka odobrenje administratora.")
-        if self.on_registered:
-            self.on_registered()

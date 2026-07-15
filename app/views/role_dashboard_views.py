@@ -134,20 +134,13 @@ class ClientDashboardView:
         self.exercises_list.pack(fill="both", expand=True, padx=12, pady=8)
         self.exercise_rating_var = ctk.StringVar()
         self.exercise_comment_var = ctk.StringVar()
-        self.exercise_video_var = ctk.StringVar()
-        self.exercise_video_comment_var = ctk.StringVar()
         self._entry(right, "Ocena vezbe 1-5", self.exercise_rating_var)
         self._entry(right, "Komentar vezbe", self.exercise_comment_var)
         ctk.CTkButton(right, text="Oceni vezbu", command=self.controller.rate_selected_exercise).pack(fill="x", padx=12, pady=6)
-        self._entry(right, "Link ili putanja mog snimka", self.exercise_video_var)
-        self._entry(right, "Komentar uz snimak", self.exercise_video_comment_var)
-        ctk.CTkButton(right, text="Posalji snimak treneru", command=self.controller.submit_selected_exercise_video).pack(fill="x", padx=12, pady=6)
 
     def _build_payments_tab(self):
         tab = self.tabs.add("Placanja")
-        self.payment_period_var = ctk.StringVar(value="2026-07")
-        self._entry(tab, "Period placanja, npr. 2026-07", self.payment_period_var)
-        ctk.CTkButton(tab, text="Plati izabranom prihvacenom treneru", command=self.controller.pay_selected_trainer).pack(fill="x", padx=12, pady=8)
+        ctk.CTkButton(tab, text="Plati clanarinu za narednih mesec dana", command=self.controller.pay_selected_trainer).pack(fill="x", padx=12, pady=8)
         self.payments_list = ListPanel(tab, height=400)
         self.payments_list.pack(fill="both", expand=True, padx=12, pady=12)
 
@@ -182,13 +175,13 @@ class ClientDashboardView:
         self.relations_list.set_rows(rows, "trainer_id", lambda r: f"{r['trainer_name']} | {r['status']} | {r['workouts_per_week']} nedeljno | mesecno {r['monthly_price'] or 0:.2f}")
 
     def show_workouts(self, rows):
-        self.workouts_list.set_rows(rows, "id", lambda r: f"{r['program_name']} / {r['name']} | {r['trainer_name']} | {r['scheduled_date'] or '-'} | {r['status']} | ocena {r['workout_rating'] or '-'}")
+        self.workouts_list.set_rows(rows, "id", lambda r: f"{r['name']} | {r['trainer_name']} | {r['scheduled_date'] or '-'} | {r['status']} | ocena {r['workout_rating'] or '-'}")
 
     def show_exercises(self, rows):
-        self.exercises_list.set_rows(rows, "id", lambda r: f"{r['exercise_order']}. {r['name']} | {r['duration_minutes'] or '-'} min | tutorial {r['video_url'] or '-'} | ocena {r['rating'] or '-'} | moj snimak {r['submitted_video'] or '-'}")
+        self.exercises_list.set_rows(rows, "id", lambda r: f"{r['exercise_order']}. {r['name']} | oprema: {r['equipment_name'] or '-'} | {r['duration_minutes'] or '-'} min | tutorial {r['video_url'] or '-'} | ocena {r['rating'] or '-'}")
 
     def show_payments(self, rows):
-        self.payments_list.set_rows(rows, "id", lambda r: f"{r['period']} | {r['trainer_name']} | {r['amount']:.2f} | {r['status']}")
+        self.payments_list.set_rows(rows, "id", lambda r: f"{r['trainer_name']} | placeno {r['paid_at']} | vazi do {r['valid_until']} | {r['amount']:.2f} | {r['status']}")
 
     def show_messages(self, rows):
         self.messages_list.set_rows(rows, "id", lambda r: f"{r['created_at']} | {r['sender_username']}: {r['text']}")
@@ -221,10 +214,10 @@ class TrainerDashboardView:
         self.tabs.pack(fill="both", expand=True, padx=20, pady=10)
         self._build_profile_tab()
         self._build_requests_clients_tab()
-        self._build_programs_tab()
+        self._build_workouts_tab()
         self._build_exercises_tab()
         self._build_equipment_tab()
-        self._build_ratings_submissions_tab()
+        self._build_client_ratings_tab()
         self._build_chat_tab()
         self.message_label = ctk.CTkLabel(self.window, text="", anchor="w")
         self.message_label.pack(fill="x", padx=24, pady=(0, 12))
@@ -258,19 +251,19 @@ class TrainerDashboardView:
         self._entry(right, "Komentar koji vide samo treneri", self.client_rating_comment_var)
         ctk.CTkButton(right, text="Sacuvaj internu ocenu", command=self.controller.save_client_rating).pack(fill="x", padx=12, pady=8)
 
-    def _build_programs_tab(self):
-        tab = self.tabs.add("Programi i treninzi")
+    def _build_workouts_tab(self):
+        tab = self.tabs.add("Treninzi")
         tab.grid_columnconfigure((0, 1), weight=1); tab.grid_rowconfigure(0, weight=1)
         left = ctk.CTkFrame(tab); left.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=10)
-        ctk.CTkLabel(left, text="Kreiranje programa za izabranog klijenta", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=12, pady=10)
-        self.program_name_var = ctk.StringVar(); self.program_description_var = ctk.StringVar(); self.workout_name_var = ctk.StringVar(); self.scheduled_date_var = ctk.StringVar()
-        for label, var in [("Naziv programa", self.program_name_var), ("Opis programa", self.program_description_var), ("Naziv treninga", self.workout_name_var), ("Datum treninga opciono", self.scheduled_date_var)]: self._entry(left, label, var)
+        ctk.CTkLabel(left, text="Kreiranje treninga za izabranog klijenta", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=12, pady=10)
+        self.workout_name_var = ctk.StringVar(); self.scheduled_date_var = ctk.StringVar()
+        for label, var in [("Naziv treninga", self.workout_name_var), ("Datum treninga opciono", self.scheduled_date_var)]: self._entry(left, label, var)
         ctk.CTkLabel(left, text="Izaberi vezbu u kartici Vezbe. Za vise vezbi koristi Ctrl klik u nastavku nije potreban; trenutna verzija dodaje izabranu vezbu.", wraplength=430).pack(anchor="w", padx=12, pady=8)
-        ctk.CTkButton(left, text="Kreiraj program i trening", command=self.controller.create_workout).pack(fill="x", padx=12, pady=8)
+        ctk.CTkButton(left, text="Dodeli trening", command=self.controller.create_workout).pack(fill="x", padx=12, pady=8)
         right = ctk.CTkFrame(tab); right.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=10)
         ctk.CTkLabel(right, text="Moji treninzi", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=12, pady=10)
         self.workouts_list = ListPanel(right, height=430); self.workouts_list.pack(fill="both", expand=True, padx=12, pady=8)
-        ctk.CTkButton(right, text="Kopiraj izabrani program izabranom klijentu", command=self.controller.copy_selected_program).pack(fill="x", padx=12, pady=6)
+        ctk.CTkButton(right, text="Kopiraj izabrani trening izabranom klijentu", command=self.controller.copy_selected_workout).pack(fill="x", padx=12, pady=6)
         ctk.CTkButton(right, text="Oznaci trening kao neodradjen", fg_color="#b45309", command=self.controller.mark_workout_missed).pack(fill="x", padx=12, pady=6)
 
     def _build_exercises_tab(self):
@@ -279,8 +272,13 @@ class TrainerDashboardView:
         left = ctk.CTkFrame(tab); left.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=10)
         self.exercises_list = ListPanel(left, height=560); self.exercises_list.pack(fill="both", expand=True, padx=12, pady=12)
         right = ctk.CTkFrame(tab); right.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=10)
-        self.exercise_id_var = ctk.StringVar(); self.exercise_name_var = ctk.StringVar(); self.exercise_description_var = ctk.StringVar(); self.exercise_tutorial_var = ctk.StringVar(); self.exercise_duration_var = ctk.StringVar()
+        self.exercise_id_var = ctk.StringVar(); self.exercise_name_var = ctk.StringVar(); self.exercise_description_var = ctk.StringVar(); self.exercise_tutorial_var = ctk.StringVar(); self.exercise_duration_var = ctk.StringVar(); self.exercise_equipment_var = ctk.StringVar(value="Bez opreme")
         for label, var in [("Naziv", self.exercise_name_var), ("Opis", self.exercise_description_var), ("Video tutorial link/putanja", self.exercise_tutorial_var), ("Trajanje u minutima", self.exercise_duration_var)]: self._entry(right, label, var)
+        ctk.CTkLabel(right, text="Oprema (opciono)").pack(anchor="w", padx=12)
+        self.exercise_equipment_menu = ctk.CTkOptionMenu(
+            right, variable=self.exercise_equipment_var, values=["Bez opreme"]
+        )
+        self.exercise_equipment_menu.pack(fill="x", padx=12, pady=(2, 8))
         ctk.CTkButton(right, text="Ucitaj izabranu vezbu u formu", command=self._load_selected_exercise).pack(fill="x", padx=12, pady=5)
         ctk.CTkButton(right, text="Nova/cista forma", fg_color="#6b7280", command=self.clear_exercise_form).pack(fill="x", padx=12, pady=5)
         ctk.CTkButton(right, text="Sacuvaj vezbu", command=self.controller.save_exercise).pack(fill="x", padx=12, pady=5)
@@ -299,15 +297,11 @@ class TrainerDashboardView:
         ctk.CTkButton(right, text="Sacuvaj opremu", command=self.controller.save_equipment).pack(fill="x", padx=12, pady=5)
         ctk.CTkButton(right, text="Obrisi opremu", fg_color="#b91c1c", command=self.controller.delete_equipment).pack(fill="x", padx=12, pady=5)
 
-    def _build_ratings_submissions_tab(self):
-        tab = self.tabs.add("Ocene i snimci")
-        tab.grid_columnconfigure((0, 1), weight=1); tab.grid_rowconfigure(0, weight=1)
-        left = ctk.CTkFrame(tab); left.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=10)
-        ctk.CTkLabel(left, text="Interne ocene klijenata - vide samo treneri", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=12, pady=10)
-        self.client_ratings_list = ListPanel(left, height=520); self.client_ratings_list.pack(fill="both", expand=True, padx=12, pady=8)
-        right = ctk.CTkFrame(tab); right.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=10)
-        ctk.CTkLabel(right, text="Snimci vezbanja koje su poslali klijenti", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=12, pady=10)
-        self.submissions_list = ListPanel(right, height=520); self.submissions_list.pack(fill="both", expand=True, padx=12, pady=8)
+    def _build_client_ratings_tab(self):
+        tab = self.tabs.add("Ocene klijenata")
+        ctk.CTkLabel(tab, text="Interne ocene klijenata - vide samo treneri", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=12, pady=10)
+        self.client_ratings_list = ListPanel(tab, height=520)
+        self.client_ratings_list.pack(fill="both", expand=True, padx=12, pady=8)
 
     def _build_chat_tab(self):
         tab = self.tabs.add("Chat")
@@ -323,19 +317,24 @@ class TrainerDashboardView:
         for key in self.profile_vars: self.profile_vars[key].set("" if row[key] is None else str(row[key]))
     def show_requests(self, rows): self.requests_list.set_rows(rows, "client_id", lambda r: f"{r['client_name']} | {r['status']} | {r['workouts_per_week']}x nedeljno | cilj: {r['goals'] or '-'} | {r['height_cm'] or '-'}cm/{r['weight_kg'] or '-'}kg | {r['training_location'] or '-'} | zdravlje: {r['health_conditions'] or '-'}")
     def show_clients(self, rows): self.clients_list.set_rows(rows, "id", lambda r: f"{r['client_name']} | {r['username']} | {r['workouts_per_week']}x | cena {r['monthly_price']:.2f} | propusteno {r['missed_count']} | cilj {r['goals'] or '-'} | zdravlje {r['health_conditions'] or '-'}")
-    def show_exercises(self, rows): self.exercises_list.set_rows(rows, "id", lambda r: f"{r['name']} | {r['duration_minutes'] or '-'} min | tutorial {r['video_url'] or '-'} | {r['description'] or '-'}")
-    def show_equipment(self, rows): self.equipment_list.set_rows(rows, "id", lambda r: f"{r['name']} | {r['category']} | {r['description'] or '-'}")
-    def show_workouts(self, rows): self.workouts_list.set_rows(rows, "id", lambda r: f"{r['program_name']} / {r['name']} | {r['client_name']} | {r['scheduled_date'] or '-'} | {r['status']}")
-    def show_submissions(self, rows): self.submissions_list.set_rows(rows, "id", lambda r: f"{r['client_name']} | {r['workout_name']} / {r['exercise_name']} | {r['video_url']} | {r['comment'] or '-'}")
+    def show_exercises(self, rows): self.exercises_list.set_rows(rows, "id", lambda r: f"{r['name']} | oprema: {r['equipment_name'] or '-'} | {r['duration_minutes'] or '-'} min | tutorial {r['video_url'] or '-'} | {r['description'] or '-'}")
+    def show_equipment(self, rows):
+        self.equipment_list.set_rows(rows, "id", lambda r: f"{r['name']} | {r['category']} | {r['description'] or '-'}")
+        values = ["Bez opreme", *[f"{row['id']} | {row['name']}" for row in rows]]
+        self.exercise_equipment_menu.configure(values=values)
+        if self.exercise_equipment_var.get() not in values:
+            self.exercise_equipment_var.set("Bez opreme")
+    def show_workouts(self, rows): self.workouts_list.set_rows(rows, "id", lambda r: f"{r['name']} | {r['client_name']} | {r['scheduled_date'] or '-'} | {r['status']}")
     def show_client_ratings(self, rows): self.client_ratings_list.set_rows(rows, "client_id", lambda r: f"{r['client_name']} | ocena {r['rating']} | trener {r['trainer_name']} | {r['comment'] or '-'}")
     def show_messages(self, rows): self.messages_list.set_rows(rows, "id", lambda r: f"{r['created_at']} | {r['sender_username']}: {r['text']}")
 
     def _load_selected_exercise(self):
         row = self.exercises_list.selected_row
         if not row: return
-        self.exercise_id_var.set(str(row["id"])); self.exercise_name_var.set(row["name"]); self.exercise_description_var.set(row["description"] or ""); self.exercise_tutorial_var.set(row["video_url"] or ""); self.exercise_duration_var.set(row["duration_minutes"] or "")
+        self.exercise_id_var.set(str(row["id"])); self.exercise_name_var.set(row["name"]); self.exercise_description_var.set(row["description"] or ""); self.exercise_tutorial_var.set(row["video_url"] or ""); self.exercise_duration_var.set(row["duration_minutes"] or ""); self.exercise_equipment_var.set("Bez opreme" if row["equipment_id"] is None else f"{row['equipment_id']} | {row['equipment_name']}")
     def clear_exercise_form(self):
         for var in [self.exercise_id_var, self.exercise_name_var, self.exercise_description_var, self.exercise_tutorial_var, self.exercise_duration_var]: var.set("")
+        self.exercise_equipment_var.set("Bez opreme")
     def _load_selected_equipment(self):
         row = self.equipment_list.selected_row
         if not row: return
@@ -351,7 +350,9 @@ class TrainerDashboardView:
     def get_selected_trainer_workout_id(self): return self.workouts_list.selected_id
     def get_selected_trainer_workout(self): return self.workouts_list.selected_row
     def get_trainer_profile_data(self): return {k: v.get().strip() for k, v in self.profile_vars.items()}
-    def get_exercise_data(self): return {"id": int(self.exercise_id_var.get()) if self.exercise_id_var.get() else None, "name": self.exercise_name_var.get().strip(), "description": self.exercise_description_var.get().strip(), "video_url": self.exercise_tutorial_var.get().strip(), "duration_minutes": self.exercise_duration_var.get().strip()}
+    def get_exercise_data(self):
+        equipment_value = self.exercise_equipment_var.get()
+        return {"id": int(self.exercise_id_var.get()) if self.exercise_id_var.get() else None, "name": self.exercise_name_var.get().strip(), "description": self.exercise_description_var.get().strip(), "video_url": self.exercise_tutorial_var.get().strip(), "duration_minutes": self.exercise_duration_var.get().strip(), "equipment_id": None if equipment_value == "Bez opreme" else int(equipment_value.split(" | ", 1)[0])}
     def get_equipment_data(self): return {"id": int(self.equipment_id_var.get()) if self.equipment_id_var.get() else None, "name": self.equipment_name_var.get().strip(), "category": self.equipment_category_var.get().strip(), "description": self.equipment_description_var.get().strip()}
     def show_error(self, message): self.message_label.configure(text=message, text_color="firebrick")
     def show_info(self, message): self.message_label.configure(text=message, text_color="darkgreen")

@@ -62,11 +62,6 @@ class BaseRegistrationView:
 class ClientRegistrationView(BaseRegistrationView):
     title = "Registracija klijenta"
 
-
-class InitialAdminView(BaseRegistrationView):
-    title = "Pocetno podesavanje administratora"
-
-
 class TrainerRegistrationView(BaseRegistrationView):
     title = "Zahtev za registraciju trenera"
     additional_fields = (

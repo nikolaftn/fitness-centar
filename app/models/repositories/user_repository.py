@@ -8,10 +8,6 @@ class UsernameAlreadyExistsError(ValueError):
     """Korisnicko ime vec postoji u bazi."""
 
 
-class InitialAdminAlreadyExistsError(ValueError):
-    """Pocetni administrator je vec napravljen."""
-
-
 class UserRepository:
     """Svi SQL upiti vezani za korisnike i njihove profile."""
 
@@ -31,24 +27,6 @@ class UserRepository:
             birth_date=row["birth_date"],
             registration_status=row["registration_status"],
         )
-
-    def count_users(self):
-        connection = self.connection_factory()
-        try:
-            row = connection.execute("SELECT COUNT(*) AS total FROM users").fetchone()
-            return row["total"]
-        finally:
-            connection.close()
-
-    def has_admin(self):
-        connection = self.connection_factory()
-        try:
-            row = connection.execute(
-                "SELECT 1 FROM users WHERE role = 'admin' LIMIT 1"
-            ).fetchone()
-            return row is not None
-        finally:
-            connection.close()
 
     def find_by_username(self, username):
         connection = self.connection_factory()
@@ -76,42 +54,6 @@ class UserRepository:
             birth_date=birth_date,
             registration_status="approved",
         )
-
-    def create_initial_admin(
-        self, username, password, first_name, last_name, birth_date
-    ):
-        connection = self.connection_factory()
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            admin_exists = connection.execute(
-                "SELECT 1 FROM users WHERE role = 'admin' LIMIT 1"
-            ).fetchone()
-            if admin_exists:
-                raise InitialAdminAlreadyExistsError(
-                    "Pocetni administrator je vec napravljen."
-                )
-
-            user_id = self._insert_user(
-                connection=connection,
-                username=username,
-                password=password,
-                role="admin",
-                first_name=first_name,
-                last_name=last_name,
-                birth_date=birth_date,
-                registration_status="approved",
-            )
-            connection.commit()
-            return self._find_by_id(connection, user_id)
-        except (InitialAdminAlreadyExistsError, UsernameAlreadyExistsError):
-            connection.rollback()
-            raise
-        except sqlite3.IntegrityError as error:
-            connection.rollback()
-            self._raise_readable_integrity_error(error)
-            raise
-        finally:
-            connection.close()
 
     def create_trainer(
         self,

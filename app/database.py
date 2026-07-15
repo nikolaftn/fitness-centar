@@ -90,35 +90,22 @@ def add_test_data(database_path=DATABASE_PATH):
 
         connection.executemany(
             """
-            INSERT INTO exercises(name, description, video_url, duration_minutes)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO exercises(
+                name, description, video_url, duration_minutes, equipment_id
+            )
+            VALUES (?, ?, ?, ?, (SELECT id FROM equipment WHERE name=?))
             ON CONFLICT(name) DO UPDATE SET
                 description=excluded.description,
                 video_url=excluded.video_url,
-                duration_minutes=excluded.duration_minutes
+                duration_minutes=excluded.duration_minutes,
+                equipment_id=excluded.equipment_id
             """,
             [
-                ("Cucanj", "Osnovna vezba za noge i gluteus.", "https://example.com/video/cucanj", 10),
-                ("Sklek", "Vezba za grudi, ramena i triceps.", "https://example.com/video/sklek", 8),
-                ("Plank", "Staticka vezba za stabilizaciju trupa.", "https://example.com/video/plank", 5),
-                ("Iskorak", "Jednonozna vezba za noge i ravnotezu.", "https://example.com/video/iskorak", 10),
-                ("Veslanje bucicama", "Vezba za ledja uz bucice.", "https://example.com/video/veslanje", 12),
-            ],
-        )
-
-        # Povezivanje vezbi i opreme.
-        connection.executemany(
-            """
-            INSERT OR IGNORE INTO exercise_equipment(exercise_id, equipment_id)
-            SELECT e.id, q.id FROM exercises e, equipment q
-            WHERE e.name=? AND q.name=?
-            """,
-            [
-                ("Cucanj", "Elasticna traka"),
-                ("Sklek", "Prostirka"),
-                ("Plank", "Prostirka"),
-                ("Iskorak", "Bucice"),
-                ("Veslanje bucicama", "Bucice"),
+                ("Cucanj", "Osnovna vezba za noge i gluteus.", "https://example.com/video/cucanj", 10, "Elasticna traka"),
+                ("Sklek", "Vezba za grudi, ramena i triceps.", "https://example.com/video/sklek", 8, "Prostirka"),
+                ("Plank", "Staticka vezba za stabilizaciju trupa.", "https://example.com/video/plank", 5, "Prostirka"),
+                ("Iskorak", "Jednonozna vezba za noge i ravnotezu.", "https://example.com/video/iskorak", 10, "Bucice"),
+                ("Veslanje bucicama", "Vezba za ledja uz bucice.", "https://example.com/video/veslanje", 12, "Bucice"),
             ],
         )
 
@@ -152,52 +139,25 @@ def add_test_data(database_path=DATABASE_PATH):
             ],
         )
 
-        # Programi se dodaju samo ako vec ne postoje.
-        connection.execute(
-            """
-            INSERT INTO programs(trainer_id, client_id, name, description)
-            SELECT t.id, c.id, 'Program snage - Petar', 'Program za tri treninga nedeljno.'
-            FROM users t, users c
-            WHERE t.username='trener1' AND c.username='klijent1'
-              AND NOT EXISTS (SELECT 1 FROM programs WHERE name='Program snage - Petar')
-            """
-        )
-        connection.execute(
-            """
-            INSERT INTO programs(trainer_id, client_id, name, description)
-            SELECT t.id, c.id, 'Program kondicije - Luka', 'Test program sa dva propustena treninga.'
-            FROM users t, users c
-            WHERE t.username='trener1' AND c.username='klijent3'
-              AND NOT EXISTS (SELECT 1 FROM programs WHERE name='Program kondicije - Luka')
-            """
-        )
-        connection.execute(
-            """
-            INSERT INTO programs(trainer_id, client_id, name, description)
-            SELECT t.id, c.id, 'Kucni program - Sara', 'Mobilnost i stabilizacija kod kuce.'
-            FROM users t, users c
-            WHERE t.username='trener2' AND c.username='klijent4'
-              AND NOT EXISTS (SELECT 1 FROM programs WHERE name='Kucni program - Sara')
-            """
-        )
-
         workouts = [
-            ("Program snage - Petar", "Trening A - noge", "2026-07-10", "completed"),
-            ("Program snage - Petar", "Trening B - gornji deo", "2026-07-16", "assigned"),
-            ("Program kondicije - Luka", "Kardio 1", "2026-07-01", "missed"),
-            ("Program kondicije - Luka", "Kardio 2", "2026-07-05", "missed"),
-            ("Kucni program - Sara", "Mobilnost 1", "2026-07-15", "assigned"),
+            ("trener1", "klijent1", "Trening A - noge", "2026-07-10", "completed"),
+            ("trener1", "klijent1", "Trening B - gornji deo", "2026-07-16", "assigned"),
+            ("trener1", "klijent3", "Kardio 1", "2026-07-01", "missed"),
+            ("trener1", "klijent3", "Kardio 2", "2026-07-05", "missed"),
+            ("trener2", "klijent4", "Mobilnost 1", "2026-07-15", "assigned"),
         ]
-        for program_name, workout_name, date, status in workouts:
+        for trainer_username, client_username, workout_name, date, status in workouts:
             connection.execute(
                 """
-                INSERT INTO workouts(program_id, name, scheduled_date, status)
-                SELECT p.id, ?, ?, ? FROM programs p WHERE p.name=?
+                INSERT INTO workouts(trainer_id, client_id, name, scheduled_date, status)
+                SELECT t.id, c.id, ?, ?, ? FROM users t, users c
+                WHERE t.username=? AND c.username=?
                   AND NOT EXISTS (
-                      SELECT 1 FROM workouts w WHERE w.program_id=p.id AND w.name=?
+                      SELECT 1 FROM workouts w
+                      WHERE w.trainer_id=t.id AND w.client_id=c.id AND w.name=?
                   )
                 """,
-                (workout_name, date, status, program_name, workout_name),
+                (workout_name, date, status, trainer_username, client_username, workout_name),
             )
 
         workout_exercises = [
@@ -240,20 +200,6 @@ def add_test_data(database_path=DATABASE_PATH):
         )
         connection.execute(
             """
-            INSERT INTO exercise_submissions(workout_id, exercise_id, client_id, video_url, comment)
-            SELECT w.id, e.id, c.id, 'https://example.com/uploads/petar-cucanj.mp4',
-                   'Molim proveru dubine cucnja.'
-            FROM workouts w, exercises e, users c
-            WHERE w.name='Trening A - noge' AND e.name='Cucanj' AND c.username='klijent1'
-              AND NOT EXISTS (
-                  SELECT 1 FROM exercise_submissions s
-                  WHERE s.workout_id=w.id AND s.exercise_id=e.id AND s.client_id=c.id
-              )
-            """
-        )
-
-        connection.execute(
-            """
             INSERT OR IGNORE INTO trainer_ratings(client_id, trainer_id, rating, comment)
             SELECT c.id, t.id, 5, 'Strucan trener i veoma jasan program.'
             FROM users c, users t
@@ -271,10 +217,18 @@ def add_test_data(database_path=DATABASE_PATH):
 
         connection.execute(
             """
-            INSERT OR IGNORE INTO payments(trainer_id, client_id, amount, period, status)
-            SELECT t.id, c.id, 24000, '2026-07', 'paid'
+            INSERT INTO payments(
+                trainer_id, client_id, amount, status, paid_at, valid_until
+            )
+            SELECT t.id, c.id, 24000, 'paid',
+                   '2026-07-01 10:00:00', '2026-08-01 10:00:00'
             FROM users t, users c
             WHERE t.username='trener1' AND c.username='klijent1'
+              AND NOT EXISTS (
+                  SELECT 1 FROM payments p
+                  WHERE p.trainer_id=t.id AND p.client_id=c.id
+                    AND p.paid_at='2026-07-01 10:00:00'
+              )
             """
         )
 
@@ -394,37 +348,22 @@ def initialize_database(database_path=DATABASE_PATH):
                 name TEXT NOT NULL UNIQUE,
                 description TEXT,
                 video_url TEXT,
-                duration_minutes INTEGER CHECK (duration_minutes > 0)
-            );
-
-            CREATE TABLE IF NOT EXISTS exercise_equipment (
-                exercise_id INTEGER NOT NULL,
-                equipment_id INTEGER NOT NULL,
-                PRIMARY KEY (exercise_id, equipment_id),
-                FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE,
-                FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS programs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                trainer_id INTEGER NOT NULL,
-                client_id INTEGER NOT NULL,
-                name TEXT NOT NULL,
-                description TEXT,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (trainer_id, client_id)
-                    REFERENCES trainer_client_relations(trainer_id, client_id)
-                    ON DELETE CASCADE
+                duration_minutes INTEGER CHECK (duration_minutes > 0),
+                equipment_id INTEGER,
+                FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE SET NULL
             );
 
             CREATE TABLE IF NOT EXISTS workouts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                program_id INTEGER NOT NULL,
+                trainer_id INTEGER NOT NULL,
+                client_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 scheduled_date TEXT,
                 status TEXT NOT NULL DEFAULT 'assigned'
                     CHECK (status IN ('assigned', 'completed', 'missed')),
-                FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+                FOREIGN KEY (trainer_id, client_id)
+                    REFERENCES trainer_client_relations(trainer_id, client_id)
+                    ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS workout_exercises (
@@ -465,30 +404,15 @@ def initialize_database(database_path=DATABASE_PATH):
                 FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
-            CREATE TABLE IF NOT EXISTS exercise_submissions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                workout_id INTEGER NOT NULL,
-                exercise_id INTEGER NOT NULL,
-                client_id INTEGER NOT NULL,
-                video_url TEXT NOT NULL,
-                comment TEXT,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (workout_id, exercise_id)
-                    REFERENCES workout_exercises(workout_id, exercise_id)
-                    ON DELETE CASCADE,
-                FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE
-            );
-
             CREATE TABLE IF NOT EXISTS payments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 trainer_id INTEGER NOT NULL,
                 client_id INTEGER NOT NULL,
                 amount REAL NOT NULL CHECK (amount >= 0),
-                period TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'paid'
                     CHECK (status IN ('paid', 'pending', 'failed')),
                 paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE (trainer_id, client_id, period),
+                valid_until TEXT NOT NULL,
                 FOREIGN KEY (trainer_id, client_id)
                     REFERENCES trainer_client_relations(trainer_id, client_id)
                     ON DELETE CASCADE
@@ -506,44 +430,6 @@ def initialize_database(database_path=DATABASE_PATH):
             """
         )
 
-        user_columns = {
-            row["name"]
-            for row in connection.execute("PRAGMA table_info(users)").fetchall()
-        }
-        if "password_hash" in user_columns and "password" not in user_columns:
-            connection.execute(
-                "ALTER TABLE users RENAME COLUMN password_hash TO password"
-            )
-
-        exercise_columns = {
-            row["name"]
-            for row in connection.execute("PRAGMA table_info(exercises)").fetchall()
-        }
-        if "video_url" not in exercise_columns:
-            connection.execute("ALTER TABLE exercises ADD COLUMN video_url TEXT")
-        if "duration_minutes" not in exercise_columns:
-            connection.execute(
-                "ALTER TABLE exercises ADD COLUMN duration_minutes INTEGER"
-            )
-
-        trainer_profile_columns = {
-            row["name"]
-            for row in connection.execute(
-                "PRAGMA table_info(trainer_profiles)"
-            ).fetchall()
-        }
-        if "diploma_license" not in trainer_profile_columns:
-            connection.execute(
-                "ALTER TABLE trainer_profiles ADD COLUMN diploma_license TEXT"
-            )
-        if "biography" not in trainer_profile_columns:
-            connection.execute(
-                "ALTER TABLE trainer_profiles ADD COLUMN biography TEXT"
-            )
         connection.commit()
     finally:
         connection.close()
-
-
-
-# Remove-Item .\data\fitness.db - ovo je za brisanje baze u shellu se kuca

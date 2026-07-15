@@ -80,32 +80,15 @@ class ClientDashboardController:
         self.view.show_info("Ocena vezbe je sacuvana.")
         self.load_selected_workout_exercises()
 
-    def submit_selected_exercise_video(self):
-        workout_id = self.view.get_selected_workout_id()
-        exercise_id = self.view.get_selected_exercise_id()
-        video = self.view.exercise_video_var.get().strip()
-        if workout_id is None or exercise_id is None:
-            return self.view.show_error("Izaberite trening i vezbu.")
-        if not video:
-            return self.view.show_error("Unesite link ili putanju snimka.")
-        self.fitness_repository.submit_exercise_video(
-            workout_id, exercise_id, self.user.id, video,
-            self.view.exercise_video_comment_var.get().strip())
-        self.view.show_info("Snimak je poslat treneru.")
-        self.load_selected_workout_exercises()
-
     def pay_selected_trainer(self):
         trainer_id = self.view.get_selected_relation_trainer_id()
-        period = self.view.payment_period_var.get().strip()
         if trainer_id is None:
             return self.view.show_error("Izaberite prihvacenog trenera.")
-        if not period:
-            return self.view.show_error("Unesite period, na primer 2026-07.")
         try:
-            self.fitness_repository.pay_monthly_subscription(trainer_id, self.user.id, period)
+            self.fitness_repository.pay_monthly_subscription(trainer_id, self.user.id)
         except ValueError as error:
             return self.view.show_error(str(error))
-        self.view.show_info("Pretplata je placena unapred.")
+        self.view.show_info("Clanarina vazi narednih mesec dana.")
         self.refresh()
 
     def load_chat(self):
@@ -175,7 +158,6 @@ class TrainerDashboardController:
         self.view.show_exercises(self.fitness_repository.list_exercises())
         self.view.show_equipment(self.fitness_repository.list_equipment())
         self.view.show_workouts(self.fitness_repository.list_trainer_workouts(self.user.id))
-        self.view.show_submissions(self.fitness_repository.list_exercise_submissions_for_trainer(self.user.id))
         self.view.show_client_ratings(self.fitness_repository.list_client_ratings_for_trainers())
 
     def save_profile(self):
@@ -218,7 +200,8 @@ class TrainerDashboardController:
             if duration is not None and duration <= 0:
                 raise ValueError
             self.fitness_repository.save_exercise(
-                data["id"], data["name"], data["description"], data["video_url"], duration)
+                data["id"], data["name"], data["description"], data["video_url"],
+                duration, data["equipment_id"])
         except ValueError:
             return self.view.show_error("Trajanje mora biti pozitivan ceo broj.")
         self.view.clear_exercise_form()
@@ -263,30 +246,28 @@ class TrainerDashboardController:
             return self.view.show_error("Izaberite klijenta.")
         if not exercise_ids:
             return self.view.show_error("Izaberite bar jednu vezbu.")
-        if not self.view.program_name_var.get().strip() or not self.view.workout_name_var.get().strip():
-            return self.view.show_error("Naziv programa i treninga su obavezni.")
+        if not self.view.workout_name_var.get().strip():
+            return self.view.show_error("Naziv treninga je obavezan.")
         try:
-            self.fitness_repository.create_program_with_workout(
-                self.user.id, client_id, self.view.program_name_var.get().strip(),
-                self.view.workout_name_var.get().strip(), exercise_ids,
-                self.view.scheduled_date_var.get().strip(),
-                self.view.program_description_var.get().strip())
+            self.fitness_repository.create_workout(
+                self.user.id, client_id, self.view.workout_name_var.get().strip(),
+                exercise_ids, self.view.scheduled_date_var.get().strip())
         except ValueError as error:
             return self.view.show_error(str(error))
-        self.view.show_info("Program i trening su dodeljeni klijentu.")
+        self.view.show_info("Trening je dodeljen klijentu.")
         self.refresh()
 
-    def copy_selected_program(self):
+    def copy_selected_workout(self):
         workout = self.view.get_selected_trainer_workout()
         client_id = self.view.get_selected_client_id()
         if workout is None or client_id is None:
-            return self.view.show_error("Izaberite postojeci trening/program i ciljnog klijenta.")
+            return self.view.show_error("Izaberite postojeci trening i ciljnog klijenta.")
         try:
-            self.fitness_repository.copy_program_to_client(
-                self.user.id, workout["program_id"], client_id)
+            self.fitness_repository.copy_workout_to_client(
+                self.user.id, workout["id"], client_id)
         except ValueError as error:
             return self.view.show_error(str(error))
-        self.view.show_info("Program je kopiran drugom klijentu.")
+        self.view.show_info("Trening je kopiran drugom klijentu.")
         self.refresh()
 
     def mark_workout_missed(self):
