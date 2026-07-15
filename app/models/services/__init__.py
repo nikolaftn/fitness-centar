@@ -1,0 +1,2 @@
+"""Poslovna pravila aplikacije."""
+

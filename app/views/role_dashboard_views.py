@@ -9,6 +9,10 @@ class ListPanel(ctk.CTkScrollableFrame):
         self.selected_row = None
         self._buttons = []
 
+    @staticmethod
+    def _value(row, key):
+        return getattr(row, key) if hasattr(row, key) else row[key]
+
     def set_rows(self, rows, id_key, formatter):
         for button in self._buttons:
             button.destroy()
@@ -31,7 +35,7 @@ class ListPanel(ctk.CTkScrollableFrame):
 
     def _select(self, row, id_key):
         self.selected_row = row
-        self.selected_id = row[id_key]
+        self.selected_id = self._value(row, id_key)
         for button in self._buttons:
             button.configure(fg_color=("gray85", "gray25"))
         index = self.rows.index(row)
@@ -172,16 +176,16 @@ class ClientDashboardView:
         self.trainers_list.set_rows(rows, "id", lambda r: f"{r['first_name']} {r['last_name']} | {r['education'] or '-'} | iskustvo {r['years_of_experience']} | cena {r['price_per_training']:.2f} | ocena {r['average_rating'] or 'nema'} ({r['rating_count']})")
 
     def show_relations(self, rows):
-        self.relations_list.set_rows(rows, "trainer_id", lambda r: f"{r['trainer_name']} | {r['status']} | {r['workouts_per_week']} nedeljno | mesecno {r['monthly_price'] or 0:.2f}")
+        self.relations_list.set_rows(rows, "trainer_id", lambda r: f"{r.trainer_name} | {r.status} | {r.workouts_per_week} nedeljno | mesecno {r.monthly_price or 0:.2f}")
 
     def show_workouts(self, rows):
-        self.workouts_list.set_rows(rows, "id", lambda r: f"{r['name']} | {r['trainer_name']} | {r['scheduled_date'] or '-'} | {r['status']} | ocena {r['workout_rating'] or '-'}")
+        self.workouts_list.set_rows(rows, "id", lambda r: f"{r.name} | {r.trainer_name} | {r.scheduled_date or '-'} | {r.status} | ocena {r.workout_rating or '-'}")
 
     def show_exercises(self, rows):
-        self.exercises_list.set_rows(rows, "id", lambda r: f"{r['exercise_order']}. {r['name']} | oprema: {r['equipment_name'] or '-'} | {r['duration_minutes'] or '-'} min | tutorial {r['video_url'] or '-'} | ocena {r['rating'] or '-'}")
+        self.exercises_list.set_rows(rows, "id", lambda r: f"{r.exercise_order}. {r.name} | oprema: {r.equipment_name or '-'} | {r.duration_minutes or '-'} min | tutorial {r.video_url or '-'} | ocena {r.rating or '-'}")
 
     def show_payments(self, rows):
-        self.payments_list.set_rows(rows, "id", lambda r: f"{r['trainer_name']} | placeno {r['paid_at']} | vazi do {r['valid_until']} | {r['amount']:.2f} | {r['status']}")
+        self.payments_list.set_rows(rows, "id", lambda r: f"{r.trainer_name} | placeno {r.paid_at} | vazi do {r.valid_until} | {r.amount:.2f} | {r.status}")
 
     def show_messages(self, rows):
         self.messages_list.set_rows(rows, "id", lambda r: f"{r['created_at']} | {r['sender_username']}: {r['text']}")
@@ -190,10 +194,11 @@ class ClientDashboardView:
     def get_selected_workout_id(self): return self.workouts_list.selected_id
     def get_selected_exercise_id(self): return self.exercises_list.selected_id
     def get_selected_workout_trainer_id(self):
-        return self.workouts_list.selected_row["trainer_id"] if self.workouts_list.selected_row else None
+        row = self.workouts_list.selected_row
+        return row.trainer_id if row else None
     def get_selected_relation_trainer_id(self):
         row = self.relations_list.selected_row
-        return row["trainer_id"] if row and row["status"] == "accepted" else None
+        return row.trainer_id if row and row.status == "accepted" else None
     def get_request_data(self): return {k: v.get().strip() for k, v in self.request_vars.items()}
     def get_profile_data(self): return {k: v.get().strip() for k, v in self.profile_vars.items()}
     def show_error(self, message): self.message_label.configure(text=message, text_color="firebrick")
@@ -317,28 +322,28 @@ class TrainerDashboardView:
         for key in self.profile_vars: self.profile_vars[key].set("" if row[key] is None else str(row[key]))
     def show_requests(self, rows): self.requests_list.set_rows(rows, "client_id", lambda r: f"{r['client_name']} | {r['status']} | {r['workouts_per_week']}x nedeljno | cilj: {r['goals'] or '-'} | {r['height_cm'] or '-'}cm/{r['weight_kg'] or '-'}kg | {r['training_location'] or '-'} | zdravlje: {r['health_conditions'] or '-'}")
     def show_clients(self, rows): self.clients_list.set_rows(rows, "id", lambda r: f"{r['client_name']} | {r['username']} | {r['workouts_per_week']}x | cena {r['monthly_price']:.2f} | propusteno {r['missed_count']} | cilj {r['goals'] or '-'} | zdravlje {r['health_conditions'] or '-'}")
-    def show_exercises(self, rows): self.exercises_list.set_rows(rows, "id", lambda r: f"{r['name']} | oprema: {r['equipment_name'] or '-'} | {r['duration_minutes'] or '-'} min | tutorial {r['video_url'] or '-'} | {r['description'] or '-'}")
+    def show_exercises(self, rows): self.exercises_list.set_rows(rows, "id", lambda r: f"{r.name} | oprema: {r.equipment_name or '-'} | {r.duration_minutes or '-'} min | tutorial {r.video_url or '-'} | {r.description or '-'}")
     def show_equipment(self, rows):
-        self.equipment_list.set_rows(rows, "id", lambda r: f"{r['name']} | {r['category']} | {r['description'] or '-'}")
-        values = ["Bez opreme", *[f"{row['id']} | {row['name']}" for row in rows]]
+        self.equipment_list.set_rows(rows, "id", lambda r: f"{r.name} | {r.category} | {r.description or '-'}")
+        values = ["Bez opreme", *[f"{row.id} | {row.name}" for row in rows]]
         self.exercise_equipment_menu.configure(values=values)
         if self.exercise_equipment_var.get() not in values:
             self.exercise_equipment_var.set("Bez opreme")
-    def show_workouts(self, rows): self.workouts_list.set_rows(rows, "id", lambda r: f"{r['name']} | {r['client_name']} | {r['scheduled_date'] or '-'} | {r['status']}")
+    def show_workouts(self, rows): self.workouts_list.set_rows(rows, "id", lambda r: f"{r.name} | {r.client_name} | {r.scheduled_date or '-'} | {r.status}")
     def show_client_ratings(self, rows): self.client_ratings_list.set_rows(rows, "client_id", lambda r: f"{r['client_name']} | ocena {r['rating']} | trener {r['trainer_name']} | {r['comment'] or '-'}")
     def show_messages(self, rows): self.messages_list.set_rows(rows, "id", lambda r: f"{r['created_at']} | {r['sender_username']}: {r['text']}")
 
     def _load_selected_exercise(self):
         row = self.exercises_list.selected_row
         if not row: return
-        self.exercise_id_var.set(str(row["id"])); self.exercise_name_var.set(row["name"]); self.exercise_description_var.set(row["description"] or ""); self.exercise_tutorial_var.set(row["video_url"] or ""); self.exercise_duration_var.set(row["duration_minutes"] or ""); self.exercise_equipment_var.set("Bez opreme" if row["equipment_id"] is None else f"{row['equipment_id']} | {row['equipment_name']}")
+        self.exercise_id_var.set(str(row.id)); self.exercise_name_var.set(row.name); self.exercise_description_var.set(row.description or ""); self.exercise_tutorial_var.set(row.video_url or ""); self.exercise_duration_var.set(row.duration_minutes or ""); self.exercise_equipment_var.set("Bez opreme" if row.equipment_id is None else f"{row.equipment_id} | {row.equipment_name}")
     def clear_exercise_form(self):
         for var in [self.exercise_id_var, self.exercise_name_var, self.exercise_description_var, self.exercise_tutorial_var, self.exercise_duration_var]: var.set("")
         self.exercise_equipment_var.set("Bez opreme")
     def _load_selected_equipment(self):
         row = self.equipment_list.selected_row
         if not row: return
-        self.equipment_id_var.set(str(row["id"])); self.equipment_name_var.set(row["name"]); self.equipment_category_var.set(row["category"]); self.equipment_description_var.set(row["description"] or "")
+        self.equipment_id_var.set(str(row.id)); self.equipment_name_var.set(row.name); self.equipment_category_var.set(row.category); self.equipment_description_var.set(row.description or "")
     def clear_equipment_form(self):
         self.equipment_id_var.set(""); self.equipment_name_var.set(""); self.equipment_category_var.set("machine"); self.equipment_description_var.set("")
 

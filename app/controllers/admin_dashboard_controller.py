@@ -2,17 +2,14 @@ from app.views.admin_dashboard_view import AdminDashboardView
 
 
 class AdminDashboardController:
-    """Povezuje administratorski prozor sa Trainer Repository slojem."""
-
-    def __init__(self, parent, user, trainer_repository):
-        self.trainer_repository = trainer_repository
+    def __init__(self, parent, user, admin_service):
+        self.admin_service = admin_service
         self.view = AdminDashboardView(parent, self, user)
         self.refresh()
 
     def refresh(self):
-        registrations = self.trainer_repository.list_pending_registrations()
+        registrations, trainers = self.admin_service.get_dashboard_data()
         self.view.show_registrations(registrations)
-        trainers = self.trainer_repository.list_trainers_by_average_rating()
         self.view.show_sorted_trainers(trainers)
 
     def approve_selected(self):
@@ -26,11 +23,16 @@ class AdminDashboardController:
         if trainer_id is None:
             self.view.show_error("Prvo izaberite zahtev trenera iz tabele.")
             return
-        changed = self.trainer_repository.decide_registration(trainer_id, decision)
+        try:
+            changed = self.admin_service.decide_trainer_registration(
+                trainer_id, decision
+            )
+        except ValueError as error:
+            self.view.show_error(str(error))
+            return
         if not changed:
             self.view.show_error("Zahtev vise nije na cekanju. Osvezite tabelu.")
             return
-
         result = "odobren" if decision == "approved" else "odbijen"
         self.view.show_info(f"Zahtev trenera je {result}.")
         self.refresh()

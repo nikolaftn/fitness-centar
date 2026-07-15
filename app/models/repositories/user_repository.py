@@ -1,7 +1,7 @@
 import sqlite3
 
 from app.database import get_connection
-from app.models.user import User
+from app.models.domain.user import User
 
 
 class UsernameAlreadyExistsError(ValueError):

@@ -1,5 +1,5 @@
 from app.database import get_connection
-from app.models.trainer_registration import TrainerRegistration
+from app.models.domain.trainer_registration import TrainerRegistration
 
 
 class TrainerRepository:

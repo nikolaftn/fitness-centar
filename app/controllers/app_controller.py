@@ -9,6 +9,10 @@ from app.controllers.trainer_registration_controller import TrainerRegistrationC
 from app.models.repositories.fitness_repository import FitnessRepository
 from app.models.repositories.trainer_repository import TrainerRepository
 from app.models.repositories.user_repository import UserRepository
+from app.models.services.admin_service import AdminService
+from app.models.services.auth_service import AuthService
+from app.models.services.fitness_service import FitnessService
+from app.models.services.registration_service import RegistrationService
 from app.views.main_view import MainView
 
 
@@ -19,6 +23,12 @@ class AppController:
         self.user_repository = UserRepository()
         self.trainer_repository = TrainerRepository()
         self.fitness_repository = FitnessRepository()
+        self.auth_service = AuthService(self.user_repository)
+        self.registration_service = RegistrationService(self.user_repository)
+        self.admin_service = AdminService(self.trainer_repository)
+        self.fitness_service = FitnessService(
+            self.fitness_repository, self.user_repository
+        )
         self.view = MainView(self)
 
     def run(self):
@@ -27,37 +37,36 @@ class AppController:
     def open_login(self):
         LoginController(
             self.view.root,
-            self.user_repository,
+            self.auth_service,
             on_login=self.open_dashboard,
         )
 
     def open_client_registration(self):
         ClientRegistrationController(
             self.view.root,
-            self.user_repository,
+            self.registration_service,
         )
 
     def open_trainer_registration(self):
         TrainerRegistrationController(
             self.view.root,
-            self.user_repository,
+            self.registration_service,
         )
 
     def open_dashboard(self, user):
         if user.role == "admin":
             AdminDashboardController(
-                self.view.root, user, self.trainer_repository
+                self.view.root, user, self.admin_service
             )
         elif user.role == "trainer":
             TrainerDashboardController(
                 self.view.root,
                 user,
-                self.fitness_repository,
+                self.fitness_service,
             )
         elif user.role == "client":
             ClientDashboardController(
                 self.view.root,
                 user,
-                self.fitness_repository,
-                self.user_repository,
+                self.fitness_service,
             )

@@ -2,17 +2,18 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class TrainerRegistration:
-    """Podaci koje administrator vidi u zahtevu trenera."""
+class User:
+    """Podaci o prijavljenom korisniku bez lozinke."""
 
-    user_id: int
+    id: int
     username: str
+    role: str
     first_name: str
     last_name: str
-    education: str
-    years_of_experience: int
-    price_per_training: float
+    birth_date: str
+    registration_status: str
 
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
+

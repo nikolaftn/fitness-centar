@@ -1,4 +1,11 @@
 from app.database import get_connection
+from app.models.domain.fitness_entities import (
+    Equipment,
+    Exercise,
+    Payment,
+    TrainerClientRelation,
+    Workout,
+)
 
 
 class FitnessRepository:
@@ -6,6 +13,76 @@ class FitnessRepository:
 
     def __init__(self, connection_factory=get_connection):
         self.connection_factory = connection_factory
+
+    @staticmethod
+    def _to_exercise(row):
+        return Exercise(
+            id=row["id"],
+            name=row["name"],
+            description=row["description"],
+            video_url=row["video_url"],
+            duration_minutes=row["duration_minutes"],
+            equipment_id=row["equipment_id"],
+            equipment_name=row["equipment_name"],
+            exercise_order=row["exercise_order"] if "exercise_order" in row.keys() else None,
+            rating=row["rating"] if "rating" in row.keys() else None,
+            comment=row["comment"] if "comment" in row.keys() else None,
+        )
+
+    @staticmethod
+    def _to_equipment(row):
+        return Equipment(
+            id=row["id"],
+            name=row["name"],
+            category=row["category"],
+            description=row["description"],
+        )
+
+    @staticmethod
+    def _to_workout(row, client_id=None):
+        return Workout(
+            id=row["id"],
+            name=row["name"],
+            scheduled_date=row["scheduled_date"],
+            status=row["status"],
+            trainer_id=row["trainer_id"] if "trainer_id" in row.keys() else None,
+            client_id=client_id if client_id is not None else row["client_id"],
+            trainer_name=row["trainer_name"] if "trainer_name" in row.keys() else None,
+            client_name=row["client_name"] if "client_name" in row.keys() else None,
+            workout_rating=row["workout_rating"] if "workout_rating" in row.keys() else None,
+            trainer_rating=row["trainer_rating"] if "trainer_rating" in row.keys() else None,
+        )
+
+    @staticmethod
+    def _to_payment(row):
+        return Payment(
+            id=row["id"],
+            trainer_id=row["trainer_id"],
+            client_id=row["client_id"],
+            amount=row["amount"],
+            status=row["status"],
+            paid_at=row["paid_at"],
+            valid_until=row["valid_until"],
+            trainer_name=row["trainer_name"],
+        )
+
+    @staticmethod
+    def _to_relation(row):
+        return TrainerClientRelation(
+            trainer_id=row["trainer_id"],
+            client_id=row["client_id"],
+            status=row["status"],
+            monthly_price=row["monthly_price"],
+            expiration_date=row["expiration_date"],
+            workouts_per_week=row["workouts_per_week"],
+            goals=row["goals"],
+            height_cm=row["height_cm"],
+            weight_kg=row["weight_kg"],
+            training_location=row["training_location"],
+            health_conditions=row["health_conditions"],
+            trainer_name=row["trainer_name"] if "trainer_name" in row.keys() else None,
+            client_name=row["client_name"] if "client_name" in row.keys() else None,
+        )
 
     # ------------------------- TRENERI I ODNOSI -------------------------
     def list_available_trainers(self):
@@ -82,18 +159,22 @@ class FitnessRepository:
         finally:
             connection.close()
 
-    def create_client_request(self, trainer_id, client_id, workouts_per_week,
-                              goals, height_cm, weight_kg, training_location,
-                              health_conditions):
+    def get_trainer_price(self, trainer_id):
         connection = self.connection_factory()
         try:
             profile = connection.execute(
                 "SELECT price_per_training FROM trainer_profiles WHERE user_id=?",
                 (trainer_id,),
             ).fetchone()
-            if profile is None:
-                raise ValueError("Izabrani trener nema profil.")
-            monthly_price = profile["price_per_training"] * workouts_per_week * 4
+            return None if profile is None else profile["price_per_training"]
+        finally:
+            connection.close()
+
+    def create_client_request(self, trainer_id, client_id, workouts_per_week,
+                              goals, height_cm, weight_kg, training_location,
+                              health_conditions, monthly_price):
+        connection = self.connection_factory()
+        try:
             connection.execute(
                 """
                 INSERT INTO trainer_client_relations(
@@ -121,7 +202,7 @@ class FitnessRepository:
     def list_client_relations(self, client_id):
         connection = self.connection_factory()
         try:
-            return connection.execute(
+            rows = connection.execute(
                 """
                 SELECT r.*, u.first_name || ' ' || u.last_name AS trainer_name,
                        u.username AS trainer_username
@@ -131,6 +212,7 @@ class FitnessRepository:
                 ORDER BY r.status='accepted' DESC, u.last_name, u.first_name
                 """, (client_id,)
             ).fetchall()
+            return [self._to_relation(row) for row in rows]
         finally:
             connection.close()
 
@@ -192,7 +274,7 @@ class FitnessRepository:
     def list_exercises(self):
         connection = self.connection_factory()
         try:
-            return connection.execute(
+            rows = connection.execute(
                 """SELECT e.id, e.name, e.description, e.video_url,
                           e.duration_minutes, e.equipment_id,
                           q.name AS equipment_name
@@ -200,6 +282,7 @@ class FitnessRepository:
                    LEFT JOIN equipment q ON q.id = e.equipment_id
                    ORDER BY e.name"""
             ).fetchall()
+            return [self._to_exercise(row) for row in rows]
         finally:
             connection.close()
 
@@ -241,9 +324,10 @@ class FitnessRepository:
     def list_equipment(self):
         connection = self.connection_factory()
         try:
-            return connection.execute(
+            rows = connection.execute(
                 "SELECT id, name, category, description FROM equipment ORDER BY name"
             ).fetchall()
+            return [self._to_equipment(row) for row in rows]
         finally:
             connection.close()
 
@@ -273,31 +357,34 @@ class FitnessRepository:
             connection.close()
 
     # ------------------------------ TRENINZI ----------------------------
-    def _ensure_assignment_allowed(self, connection, trainer_id, client_id):
-        missed = connection.execute(
-            """
-            SELECT COUNT(*) AS total FROM workouts w
-            WHERE w.trainer_id=? AND w.client_id=? AND w.status='missed'
-            """, (trainer_id, client_id)
-        ).fetchone()["total"]
-        if missed >= 2:
-            raise ValueError(
-                "Klijent ima najmanje dva neodradjena treninga. "
-                "Dodeljivanje novih treninga je automatski blokirano."
-            )
+    def count_missed_workouts(self, trainer_id, client_id):
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """SELECT COUNT(*) AS total FROM workouts
+                   WHERE trainer_id=? AND client_id=? AND status='missed'""",
+                (trainer_id, client_id),
+            ).fetchone()
+            return row["total"]
+        finally:
+            connection.close()
+
+    def has_accepted_relation(self, trainer_id, client_id):
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """SELECT 1 FROM trainer_client_relations
+                   WHERE trainer_id=? AND client_id=? AND status='accepted'""",
+                (trainer_id, client_id),
+            ).fetchone()
+            return row is not None
+        finally:
+            connection.close()
 
     def create_workout(self, trainer_id, client_id, workout_name, exercise_ids,
                        scheduled_date=None):
         connection = self.connection_factory()
         try:
-            self._ensure_assignment_allowed(connection, trainer_id, client_id)
-            relation = connection.execute(
-                """SELECT 1 FROM trainer_client_relations
-                   WHERE trainer_id=? AND client_id=? AND status='accepted'""",
-                (trainer_id, client_id),
-            ).fetchone()
-            if relation is None:
-                raise ValueError("Klijent nije prihvacen kod ovog trenera.")
             cursor = connection.execute(
                 """INSERT INTO workouts(trainer_id, client_id, name, scheduled_date)
                    VALUES (?, ?, ?, ?)""",
@@ -318,7 +405,7 @@ class FitnessRepository:
     def list_trainer_workouts(self, trainer_id):
         connection = self.connection_factory()
         try:
-            return connection.execute(
+            rows = connection.execute(
                 """
                 SELECT w.id, w.name, w.scheduled_date, w.status,
                        w.client_id, u.first_name || ' ' || u.last_name AS client_name
@@ -327,12 +414,23 @@ class FitnessRepository:
                 WHERE w.trainer_id=? ORDER BY w.id DESC
                 """, (trainer_id,)
             ).fetchall()
+            return [self._to_workout(row) for row in rows]
+        finally:
+            connection.close()
+
+    def get_workout_for_trainer(self, trainer_id, workout_id):
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """SELECT id, trainer_id, client_id, name, scheduled_date, status
+                   FROM workouts WHERE id=? AND trainer_id=?""",
+                (workout_id, trainer_id),
+            ).fetchone()
+            return None if row is None else self._to_workout(row)
         finally:
             connection.close()
 
     def update_workout_status(self, trainer_id, workout_id, status):
-        if status not in {"assigned", "completed", "missed"}:
-            raise ValueError("Neispravan status treninga.")
         connection = self.connection_factory()
         try:
             connection.execute(
@@ -343,33 +441,19 @@ class FitnessRepository:
         finally:
             connection.close()
 
-    def copy_workout_to_client(self, trainer_id, source_workout_id, target_client_id):
+    def copy_workout_to_client(self, workout, target_client_id):
         connection = self.connection_factory()
         try:
-            self._ensure_assignment_allowed(connection, trainer_id, target_client_id)
-            workout = connection.execute(
-                "SELECT * FROM workouts WHERE id=? AND trainer_id=?",
-                (source_workout_id, trainer_id),
-            ).fetchone()
-            if workout is None:
-                raise ValueError("Trening nije pronadjen.")
-            relation = connection.execute(
-                """SELECT 1 FROM trainer_client_relations
-                   WHERE trainer_id=? AND client_id=? AND status='accepted'""",
-                (trainer_id, target_client_id),
-            ).fetchone()
-            if relation is None:
-                raise ValueError("Ciljni klijent nije prihvacen.")
             cursor = connection.execute(
                 """INSERT INTO workouts(trainer_id, client_id, name, scheduled_date, status)
                    VALUES (?, ?, ?, ?, 'assigned')""",
-                (trainer_id, target_client_id, workout["name"] + " - kopija",
-                 workout["scheduled_date"]),
+                (workout.trainer_id, target_client_id, workout.name + " - kopija",
+                 workout.scheduled_date),
             )
             new_workout_id = cursor.lastrowid
             exercises = connection.execute(
                 "SELECT * FROM workout_exercises WHERE workout_id=? ORDER BY exercise_order",
-                (source_workout_id,),
+                (workout.id,),
             ).fetchall()
             connection.executemany(
                 """INSERT INTO workout_exercises(workout_id, exercise_id,
@@ -389,7 +473,7 @@ class FitnessRepository:
     def list_client_workouts(self, client_id):
         connection = self.connection_factory()
         try:
-            return connection.execute(
+            rows = connection.execute(
                 """
                 SELECT w.id, w.name, w.scheduled_date, w.status,
                        t.id AS trainer_id,
@@ -402,15 +486,16 @@ class FitnessRepository:
                 WHERE w.client_id=? ORDER BY w.id DESC
                 """, (client_id,)
             ).fetchall()
+            return [self._to_workout(row, client_id) for row in rows]
         finally:
             connection.close()
 
     def list_workout_exercises(self, workout_id, client_id):
         connection = self.connection_factory()
         try:
-            return connection.execute(
+            rows = connection.execute(
                 """
-                SELECT e.id, e.name, e.description, e.video_url,
+                SELECT e.id, e.name, e.description, e.video_url, e.equipment_id,
                        q.name AS equipment_name,
                        COALESCE(we.duration_minutes, e.duration_minutes) AS duration_minutes,
                        we.exercise_order, er.rating, er.comment
@@ -421,6 +506,7 @@ class FitnessRepository:
                 WHERE we.workout_id=? ORDER BY we.exercise_order
                 """, (client_id, workout_id)
             ).fetchall()
+            return [self._to_exercise(row) for row in rows]
         finally:
             connection.close()
 
@@ -547,11 +633,12 @@ class FitnessRepository:
     def list_payments_for_client(self, client_id):
         connection = self.connection_factory()
         try:
-            return connection.execute(
+            rows = connection.execute(
                 """SELECT p.*, t.first_name || ' ' || t.last_name AS trainer_name
                    FROM payments p JOIN users t ON t.id=p.trainer_id
                    WHERE p.client_id=? ORDER BY p.paid_at DESC""", (client_id,)
             ).fetchall()
+            return [self._to_payment(row) for row in rows]
         finally:
             connection.close()
 

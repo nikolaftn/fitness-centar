@@ -2,28 +2,16 @@ from app.views.login_view import LoginView
 
 
 class LoginController:
-    """Obradjuje prijavu iz Login prozora."""
-
-    def __init__(self, parent, user_repository, on_login=None):
-        self.user_repository = user_repository
+    def __init__(self, parent, auth_service, on_login=None):
+        self.auth_service = auth_service
         self.on_login = on_login
         self.view = LoginView(parent, self)
 
     def submit(self, username, password):
-        username = username.strip()
-        if not username or not password:
-            self.view.show_error("Unesite korisnicko ime i lozinku.")
-            return
-
-        user = self.user_repository.authenticate(username, password)
-        if user is None:
-            self.view.show_error("Pogresno korisnicko ime ili lozinka.")
-            return
-        if user.registration_status == "pending":
-            self.view.show_info("Zahtev za registraciju jos ceka odobrenje administratora.")
-            return
-        if user.registration_status == "rejected":
-            self.view.show_error("Zahtev za registraciju je odbijen.")
+        try:
+            user = self.auth_service.login(username, password)
+        except ValueError as error:
+            self.view.show_error(str(error))
             return
 
         self.view.close()
