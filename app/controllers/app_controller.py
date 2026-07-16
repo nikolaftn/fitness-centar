@@ -1,10 +1,8 @@
 from app.controllers.admin_dashboard_controller import AdminDashboardController
 from app.controllers.client_registration_controller import ClientRegistrationController
 from app.controllers.login_controller import LoginController
-from app.controllers.role_dashboard_controllers import (
-    ClientDashboardController,
-    TrainerDashboardController,
-)
+from app.controllers.client_dashboard_controller import ClientDashboardController
+from app.controllers.trainer_dashboard_controller import TrainerDashboardController
 from app.controllers.trainer_registration_controller import TrainerRegistrationController
 from app.models.repositories.fitness_repository import FitnessRepository
 from app.models.repositories.trainer_repository import TrainerRepository
@@ -25,7 +23,9 @@ class AppController:
         self.fitness_repository = FitnessRepository()
         self.login_service = LoginService(self.user_repository)
         self.registration_service = RegistrationService(self.user_repository)
-        self.admin_service = AdminService(self.trainer_repository)
+        self.admin_service = AdminService(
+            self.trainer_repository, self.fitness_repository
+        )
         self.fitness_service = FitnessService(
             self.fitness_repository, self.user_repository
         )

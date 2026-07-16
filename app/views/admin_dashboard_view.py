@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 
 class AdminDashboardView:
@@ -9,8 +9,8 @@ class AdminDashboardView:
         self.controller = controller
         self.window = tk.Toplevel(parent)
         self.window.title("Administrator")
-        self.window.geometry("980x700")
-        self.window.minsize(820, 560)
+        self.window.geometry("1000x700")
+        self.window.minsize(850, 580)
 
         header = tk.Frame(self.window, padx=24, pady=18)
         header.pack(fill="x")
@@ -101,6 +101,19 @@ class AdminDashboardView:
             buttons, text="Odbij", width=16, command=self.controller.reject_selected
         ).pack(side="left", padx=8)
         tk.Button(
+            buttons,
+            text="Ukloni trenera",
+            width=16,
+            fg="firebrick",
+            command=self.controller.delete_selected_trainer,
+        ).pack(side="left", padx=8)
+        tk.Button(
+            buttons,
+            text="Otvori chat",
+            width=16,
+            command=self.controller.open_trainer_chat,
+        ).pack(side="left", padx=8)
+        tk.Button(
             buttons, text="Osvezi", width=16, command=self.controller.refresh
         ).pack(side="right")
 
@@ -141,6 +154,23 @@ class AdminDashboardView:
     def get_selected_trainer_id(self):
         selection = self.table.selection()
         return int(selection[0]) if selection else None
+
+    def get_selected_existing_trainer_id(self):
+        selection = self.ratings_table.selection()
+        return int(selection[0]) if selection else None
+
+    def get_selected_existing_trainer_name(self):
+        selection = self.ratings_table.selection()
+        if not selection:
+            return None
+        return self.ratings_table.item(selection[0], "values")[0]
+
+    def confirm_trainer_deletion(self, trainer_name):
+        return messagebox.askyesno(
+            "Uklanjanje trenera",
+            f"Da li sigurno zelite da uklonite trenera {trainer_name}?",
+            parent=self.window,
+        )
 
     def show_error(self, message):
         self.message_label.config(text=message, fg="firebrick")

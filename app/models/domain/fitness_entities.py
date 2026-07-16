@@ -6,13 +6,13 @@ class Exercise:
     id: int
     name: str
     description: str | None
-    video_url: str | None
     duration_minutes: int | None
     equipment_id: int | None = None
     equipment_name: str | None = None
     exercise_order: int | None = None
     rating: int | None = None
     comment: str | None = None
+    completed: bool = False
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,7 @@ class Equipment:
 class Workout:
     id: int
     name: str
-    scheduled_date: str | None
+    scheduled_date: str
     status: str
     trainer_id: int | None = None
     client_id: int | None = None
@@ -35,18 +35,6 @@ class Workout:
     client_name: str | None = None
     workout_rating: int | None = None
     trainer_rating: int | None = None
-
-
-@dataclass(frozen=True)
-class Payment:
-    id: int
-    trainer_id: int
-    client_id: int
-    amount: float
-    status: str
-    paid_at: str
-    valid_until: str
-    trainer_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -62,6 +50,19 @@ class TrainerClientRelation:
     weight_kg: float | None
     training_location: str | None
     health_conditions: str | None
+    is_paid: bool = False
     trainer_name: str | None = None
     client_name: str | None = None
+
+
+@dataclass(frozen=True)
+class Notification:
+    id: int
+    client_id: int
+    trainer_id: int
+    payment_id: int
+    notification_type: str
+    message: str
+    is_read: bool
+    created_at: str
 

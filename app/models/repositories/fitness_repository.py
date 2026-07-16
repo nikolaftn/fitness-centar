@@ -2,7 +2,7 @@ from app.database import get_connection
 from app.models.domain.fitness_entities import (
     Equipment,
     Exercise,
-    Payment,
+    Notification,
     TrainerClientRelation,
     Workout,
 )
@@ -20,13 +20,13 @@ class FitnessRepository:
             id=row["id"],
             name=row["name"],
             description=row["description"],
-            video_url=row["video_url"],
             duration_minutes=row["duration_minutes"],
             equipment_id=row["equipment_id"],
             equipment_name=row["equipment_name"],
             exercise_order=row["exercise_order"] if "exercise_order" in row.keys() else None,
             rating=row["rating"] if "rating" in row.keys() else None,
             comment=row["comment"] if "comment" in row.keys() else None,
+            completed=bool(row["completed"]) if "completed" in row.keys() else False,
         )
 
     @staticmethod
@@ -54,19 +54,6 @@ class FitnessRepository:
         )
 
     @staticmethod
-    def _to_payment(row):
-        return Payment(
-            id=row["id"],
-            trainer_id=row["trainer_id"],
-            client_id=row["client_id"],
-            amount=row["amount"],
-            status=row["status"],
-            paid_at=row["paid_at"],
-            valid_until=row["valid_until"],
-            trainer_name=row["trainer_name"],
-        )
-
-    @staticmethod
     def _to_relation(row):
         return TrainerClientRelation(
             trainer_id=row["trainer_id"],
@@ -80,12 +67,26 @@ class FitnessRepository:
             weight_kg=row["weight_kg"],
             training_location=row["training_location"],
             health_conditions=row["health_conditions"],
+            is_paid=bool(row["is_paid"]),
             trainer_name=row["trainer_name"] if "trainer_name" in row.keys() else None,
             client_name=row["client_name"] if "client_name" in row.keys() else None,
         )
 
+    @staticmethod
+    def _to_notification(row):
+        return Notification(
+            id=row["id"],
+            client_id=row["client_id"],
+            trainer_id=row["trainer_id"],
+            payment_id=row["payment_id"],
+            notification_type=row["notification_type"],
+            message=row["message"],
+            is_read=bool(row["is_read"]),
+            created_at=row["created_at"],
+        )
+
     # ------------------------- TRENERI I ODNOSI -------------------------
-    def list_available_trainers(self):
+    def list_available_trainers(self, client_id):
         connection = self.connection_factory()
         try:
             return connection.execute(
@@ -98,11 +99,20 @@ class FitnessRepository:
                 FROM users u
                 JOIN trainer_profiles tp ON tp.user_id = u.id
                 LEFT JOIN trainer_ratings tr ON tr.trainer_id = u.id
-                WHERE u.role = 'trainer' AND u.registration_status = 'approved'
+                WHERE u.role = 'trainer'
+                  AND u.registration_status = 'approved'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM trainer_client_relations r
+                      WHERE r.trainer_id = u.id
+                        AND r.client_id = ?
+                        AND r.status IN ('pending', 'accepted')
+                  )
                 GROUP BY u.id
                 ORDER BY average_rating IS NULL, average_rating DESC,
                          u.last_name, u.first_name
-                """
+                """,
+                (client_id,),
             ).fetchall()
         finally:
             connection.close()
@@ -175,6 +185,16 @@ class FitnessRepository:
                               health_conditions, monthly_price):
         connection = self.connection_factory()
         try:
+            existing_relation = connection.execute(
+                """SELECT status FROM trainer_client_relations
+                   WHERE trainer_id=? AND client_id=?""",
+                (trainer_id, client_id),
+            ).fetchone()
+            if existing_relation and existing_relation["status"] == "pending":
+                raise ValueError("Zahtev ovom treneru je vec poslat.")
+            if existing_relation and existing_relation["status"] == "accepted":
+                raise ValueError("Vec imate prihvacen odnos sa ovim trenerom.")
+
             connection.execute(
                 """
                 INSERT INTO trainer_client_relations(
@@ -184,7 +204,7 @@ class FitnessRepository:
                 ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(trainer_id, client_id) DO UPDATE SET
                     monthly_price=excluded.monthly_price,
-                    expiration_date=NULL, status='pending',
+                    expiration_date=NULL, is_paid=0, status='pending',
                     workouts_per_week=excluded.workouts_per_week,
                     goals=excluded.goals, height_cm=excluded.height_cm,
                     weight_kg=excluded.weight_kg,
@@ -208,7 +228,7 @@ class FitnessRepository:
                        u.username AS trainer_username
                 FROM trainer_client_relations r
                 JOIN users u ON u.id=r.trainer_id
-                WHERE r.client_id=?
+                WHERE r.client_id=? AND r.status IN ('pending', 'accepted')
                 ORDER BY r.status='accepted' DESC, u.last_name, u.first_name
                 """, (client_id,)
             ).fetchall()
@@ -225,8 +245,8 @@ class FitnessRepository:
                        u.username AS client_username
                 FROM trainer_client_relations r
                 JOIN users u ON u.id=r.client_id
-                WHERE r.trainer_id=?
-                ORDER BY r.status='pending' DESC, u.last_name, u.first_name
+                WHERE r.trainer_id=? AND r.status='pending'
+                ORDER BY u.last_name, u.first_name
                 """, (trainer_id,)
             ).fetchall()
         finally:
@@ -238,7 +258,8 @@ class FitnessRepository:
         connection = self.connection_factory()
         try:
             cursor = connection.execute(
-                """UPDATE trainer_client_relations SET status=?
+                """UPDATE trainer_client_relations
+                   SET status=?, is_paid=0, expiration_date=NULL
                    WHERE trainer_id=? AND client_id=? AND status='pending'""",
                 (status, trainer_id, client_id),
             )
@@ -250,23 +271,51 @@ class FitnessRepository:
     def list_accepted_clients(self, trainer_id):
         connection = self.connection_factory()
         try:
-            return connection.execute(
+            rows = connection.execute(
                 """
                 SELECT u.id, u.username,
                        u.first_name || ' ' || u.last_name AS client_name,
                        r.workouts_per_week, r.monthly_price, r.goals,
                        r.height_cm, r.weight_kg, r.training_location,
-                       r.health_conditions,
-                       (SELECT COUNT(*) FROM workouts w
-                        WHERE w.trainer_id=r.trainer_id
-                          AND w.client_id=r.client_id
-                          AND w.status='missed') AS missed_count
+                       r.health_conditions
                 FROM trainer_client_relations r
                 JOIN users u ON u.id=r.client_id
-                WHERE r.trainer_id=? AND r.status='accepted'
+                WHERE r.trainer_id=? AND r.status='accepted' AND r.is_paid=1
                 ORDER BY u.last_name, u.first_name
                 """, (trainer_id,)
             ).fetchall()
+            clients = []
+            for row in rows:
+                client = dict(row)
+                payment = connection.execute(
+                    """SELECT paid_at, valid_until
+                       FROM payments
+                       WHERE trainer_id=? AND client_id=? AND status='paid'
+                         AND paid_at <= CURRENT_TIMESTAMP
+                         AND valid_until > CURRENT_TIMESTAMP
+                       ORDER BY valid_until DESC
+                       LIMIT 1""",
+                    (trainer_id, row["id"]),
+                ).fetchone()
+                if payment is None:
+                    continue
+                client["active_until"] = payment["valid_until"]
+                missed = connection.execute(
+                    """SELECT COUNT(*) AS total
+                       FROM workouts
+                       WHERE trainer_id=? AND client_id=? AND status='missed'
+                         AND date(scheduled_date) >= date(?)
+                         AND date(scheduled_date) < date(?)""",
+                    (
+                        trainer_id,
+                        row["id"],
+                        payment["paid_at"],
+                        payment["valid_until"],
+                    ),
+                ).fetchone()
+                client["missed_count"] = missed["total"]
+                clients.append(client)
+            return clients
         finally:
             connection.close()
 
@@ -275,8 +324,8 @@ class FitnessRepository:
         connection = self.connection_factory()
         try:
             rows = connection.execute(
-                """SELECT e.id, e.name, e.description, e.video_url,
-                          e.duration_minutes, e.equipment_id,
+                """SELECT e.id, e.name, e.description, e.duration_minutes,
+                          e.equipment_id,
                           q.name AS equipment_name
                    FROM exercises e
                    LEFT JOIN equipment q ON q.id = e.equipment_id
@@ -286,31 +335,30 @@ class FitnessRepository:
         finally:
             connection.close()
 
-    def save_exercise(self, exercise_id, name, description, video_url,
-                      duration_minutes, equipment_id):
+    def save_exercise(self, exercise_id, name, description, duration_minutes,
+                      equipment_id):
         connection = self.connection_factory()
         try:
             if exercise_id:
                 connection.execute(
-                    """UPDATE exercises SET name=?, description=?, video_url=?,
+                    """UPDATE exercises SET name=?, description=?,
                        duration_minutes=?, equipment_id=? WHERE id=?""",
-                    (name, description or None, video_url or None,
-                     duration_minutes, equipment_id, exercise_id),
+                    (name, description or None, duration_minutes, equipment_id,
+                     exercise_id),
                 )
             else:
                 connection.execute(
                     """INSERT INTO exercises(
-                           name, description, video_url, duration_minutes, equipment_id
-                       ) VALUES (?, ?, ?, ?, ?)""",
-                    (name, description or None, video_url or None,
-                     duration_minutes, equipment_id),
+                           name, description, duration_minutes, equipment_id
+                       ) VALUES (?, ?, ?, ?)""",
+                    (name, description or None, duration_minutes, equipment_id),
                 )
             connection.commit()
         finally:
             connection.close()
 
-    def create_exercise(self, name, description, video_url):
-        self.save_exercise(None, name, description, video_url, None, None)
+    def create_exercise(self, name, description):
+        self.save_exercise(None, name, description, None, None)
 
     def delete_exercise(self, exercise_id):
         connection = self.connection_factory()
@@ -357,38 +405,80 @@ class FitnessRepository:
             connection.close()
 
     # ------------------------------ TRENINZI ----------------------------
-    def count_missed_workouts(self, trainer_id, client_id):
+    def mark_overdue_workouts(self):
         connection = self.connection_factory()
         try:
-            row = connection.execute(
-                """SELECT COUNT(*) AS total FROM workouts
-                   WHERE trainer_id=? AND client_id=? AND status='missed'""",
+            connection.execute(
+                """UPDATE workouts
+                   SET status='missed'
+                   WHERE status='assigned'
+                     AND scheduled_date IS NOT NULL
+                     AND date(scheduled_date) < date('now', 'localtime')"""
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+    def get_active_membership_expiration(self, trainer_id, client_id):
+        connection = self.connection_factory()
+        try:
+            payment = connection.execute(
+                """SELECT p.valid_until
+                   FROM payments p
+                   JOIN trainer_client_relations r
+                     ON r.trainer_id=p.trainer_id AND r.client_id=p.client_id
+                   WHERE p.trainer_id=? AND p.client_id=?
+                     AND r.status='accepted' AND r.is_paid=1 AND p.status='paid'
+                     AND p.paid_at <= CURRENT_TIMESTAMP
+                     AND p.valid_until > CURRENT_TIMESTAMP
+                   ORDER BY p.valid_until DESC
+                   LIMIT 1""",
                 (trainer_id, client_id),
+            ).fetchone()
+            return payment["valid_until"] if payment else None
+        finally:
+            connection.close()
+
+    def count_missed_workouts_in_active_membership(self, trainer_id, client_id):
+        connection = self.connection_factory()
+        try:
+            payment = connection.execute(
+                """SELECT paid_at, valid_until
+                   FROM payments
+                   WHERE trainer_id=? AND client_id=? AND status='paid'
+                     AND paid_at <= CURRENT_TIMESTAMP
+                     AND valid_until > CURRENT_TIMESTAMP
+                   ORDER BY valid_until DESC
+                   LIMIT 1""",
+                (trainer_id, client_id),
+            ).fetchone()
+            if payment is None:
+                return 0
+            row = connection.execute(
+                """SELECT COUNT(*) AS total
+                   FROM workouts
+                   WHERE trainer_id=? AND client_id=? AND status='missed'
+                     AND date(scheduled_date) >= date(?)
+                     AND date(scheduled_date) < date(?)""",
+                (
+                    trainer_id,
+                    client_id,
+                    payment["paid_at"],
+                    payment["valid_until"],
+                ),
             ).fetchone()
             return row["total"]
         finally:
             connection.close()
 
-    def has_accepted_relation(self, trainer_id, client_id):
-        connection = self.connection_factory()
-        try:
-            row = connection.execute(
-                """SELECT 1 FROM trainer_client_relations
-                   WHERE trainer_id=? AND client_id=? AND status='accepted'""",
-                (trainer_id, client_id),
-            ).fetchone()
-            return row is not None
-        finally:
-            connection.close()
-
     def create_workout(self, trainer_id, client_id, workout_name, exercise_ids,
-                       scheduled_date=None):
+                       scheduled_date):
         connection = self.connection_factory()
         try:
             cursor = connection.execute(
                 """INSERT INTO workouts(trainer_id, client_id, name, scheduled_date)
                    VALUES (?, ?, ?, ?)""",
-                (trainer_id, client_id, workout_name, scheduled_date or None),
+                (trainer_id, client_id, workout_name, scheduled_date),
             )
             workout_id = cursor.lastrowid
             connection.executemany(
@@ -402,75 +492,7 @@ class FitnessRepository:
         finally:
             connection.close()
 
-    def list_trainer_workouts(self, trainer_id):
-        connection = self.connection_factory()
-        try:
-            rows = connection.execute(
-                """
-                SELECT w.id, w.name, w.scheduled_date, w.status,
-                       w.client_id, u.first_name || ' ' || u.last_name AS client_name
-                FROM workouts w
-                JOIN users u ON u.id=w.client_id
-                WHERE w.trainer_id=? ORDER BY w.id DESC
-                """, (trainer_id,)
-            ).fetchall()
-            return [self._to_workout(row) for row in rows]
-        finally:
-            connection.close()
-
-    def get_workout_for_trainer(self, trainer_id, workout_id):
-        connection = self.connection_factory()
-        try:
-            row = connection.execute(
-                """SELECT id, trainer_id, client_id, name, scheduled_date, status
-                   FROM workouts WHERE id=? AND trainer_id=?""",
-                (workout_id, trainer_id),
-            ).fetchone()
-            return None if row is None else self._to_workout(row)
-        finally:
-            connection.close()
-
-    def update_workout_status(self, trainer_id, workout_id, status):
-        connection = self.connection_factory()
-        try:
-            connection.execute(
-                "UPDATE workouts SET status=? WHERE id=? AND trainer_id=?",
-                (status, workout_id, trainer_id),
-            )
-            connection.commit()
-        finally:
-            connection.close()
-
-    def copy_workout_to_client(self, workout, target_client_id):
-        connection = self.connection_factory()
-        try:
-            cursor = connection.execute(
-                """INSERT INTO workouts(trainer_id, client_id, name, scheduled_date, status)
-                   VALUES (?, ?, ?, ?, 'assigned')""",
-                (workout.trainer_id, target_client_id, workout.name + " - kopija",
-                 workout.scheduled_date),
-            )
-            new_workout_id = cursor.lastrowid
-            exercises = connection.execute(
-                "SELECT * FROM workout_exercises WHERE workout_id=? ORDER BY exercise_order",
-                (workout.id,),
-            ).fetchall()
-            connection.executemany(
-                """INSERT INTO workout_exercises(workout_id, exercise_id,
-                   exercise_order, sets, repetitions, duration_minutes)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                [(new_workout_id, exercise["exercise_id"], exercise["exercise_order"],
-                  exercise["sets"], exercise["repetitions"], exercise["duration_minutes"])
-                 for exercise in exercises],
-            )
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
-
-    def list_client_workouts(self, client_id):
+    def list_client_workouts(self, client_id, trainer_id):
         connection = self.connection_factory()
         try:
             rows = connection.execute(
@@ -483,8 +505,9 @@ class FitnessRepository:
                 JOIN users t ON t.id=w.trainer_id
                 LEFT JOIN workout_ratings wr ON wr.workout_id=w.id AND wr.client_id=w.client_id
                 LEFT JOIN trainer_ratings tr ON tr.trainer_id=w.trainer_id AND tr.client_id=w.client_id
-                WHERE w.client_id=? ORDER BY w.id DESC
-                """, (client_id,)
+                WHERE w.client_id=? AND w.trainer_id=?
+                ORDER BY w.id DESC
+                """, (client_id, trainer_id)
             ).fetchall()
             return [self._to_workout(row, client_id) for row in rows]
         finally:
@@ -495,10 +518,10 @@ class FitnessRepository:
         try:
             rows = connection.execute(
                 """
-                SELECT e.id, e.name, e.description, e.video_url, e.equipment_id,
+                SELECT e.id, e.name, e.description, e.equipment_id,
                        q.name AS equipment_name,
                        COALESCE(we.duration_minutes, e.duration_minutes) AS duration_minutes,
-                       we.exercise_order, er.rating, er.comment
+                       we.exercise_order, we.completed, er.rating, er.comment
                 FROM workout_exercises we JOIN exercises e ON e.id=we.exercise_id
                 LEFT JOIN equipment q ON q.id=e.equipment_id
                 LEFT JOIN exercise_ratings er ON er.workout_id=we.workout_id
@@ -507,6 +530,73 @@ class FitnessRepository:
                 """, (client_id, workout_id)
             ).fetchall()
             return [self._to_exercise(row) for row in rows]
+        finally:
+            connection.close()
+
+    def get_client_workout(self, workout_id, client_id):
+        connection = self.connection_factory()
+        try:
+            return connection.execute(
+                """SELECT id, trainer_id, client_id, name, scheduled_date, status
+                   FROM workouts
+                   WHERE id=? AND client_id=?""",
+                (workout_id, client_id),
+            ).fetchone()
+        finally:
+            connection.close()
+
+    def set_workout_exercise_completed(
+        self, workout_id, exercise_id, client_id, completed
+    ):
+        connection = self.connection_factory()
+        try:
+            cursor = connection.execute(
+                """UPDATE workout_exercises
+                   SET completed=?,
+                       completed_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE NULL END
+                   WHERE workout_id=? AND exercise_id=?
+                     AND EXISTS (
+                         SELECT 1 FROM workouts
+                         WHERE id=? AND client_id=?
+                     )""",
+                (
+                    int(completed),
+                    int(completed),
+                    workout_id,
+                    exercise_id,
+                    workout_id,
+                    client_id,
+                ),
+            )
+            connection.commit()
+            if cursor.rowcount != 1:
+                raise ValueError("Vezba nije pronadjena u ovom treningu.")
+        finally:
+            connection.close()
+
+    def is_workout_exercise_completed(self, workout_id, exercise_id):
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """SELECT completed FROM workout_exercises
+                   WHERE workout_id=? AND exercise_id=?""",
+                (workout_id, exercise_id),
+            ).fetchone()
+            return bool(row["completed"]) if row else False
+        finally:
+            connection.close()
+
+    def all_workout_exercises_completed(self, workout_id):
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """SELECT COUNT(*) AS total,
+                          SUM(CASE WHEN completed=1 THEN 1 ELSE 0 END) AS completed
+                   FROM workout_exercises
+                   WHERE workout_id=?""",
+                (workout_id,),
+            ).fetchone()
+            return row["total"] > 0 and row["total"] == row["completed"]
         finally:
             connection.close()
 
@@ -522,6 +612,30 @@ class FitnessRepository:
                 (workout_id, client_id, rating, comment or None),
             )
             connection.execute("UPDATE workouts SET status='completed' WHERE id=?", (workout_id,))
+            workout = connection.execute(
+                """SELECT trainer_id, name FROM workouts
+                   WHERE id=? AND client_id=?""",
+                (workout_id, client_id),
+            ).fetchone()
+            message = (
+                "OCENA TRENINGA\n"
+                f"Trening: {workout['name']}\n"
+                f"Ocena: {rating}/5\n"
+                f"Komentar: {comment or 'Bez komentara.'}"
+            )
+            connection.execute(
+                """INSERT INTO messages(
+                       sender_id, receiver_id, text, message_type, rating_key
+                   ) VALUES (?, ?, ?, 'workout_rating', ?)
+                   ON CONFLICT(rating_key) DO UPDATE SET
+                   text=excluded.text, created_at=CURRENT_TIMESTAMP""",
+                (
+                    client_id,
+                    workout["trainer_id"],
+                    message,
+                    f"workout_rating:{workout_id}:{client_id}",
+                ),
+            )
             connection.commit()
         finally:
             connection.close()
@@ -531,19 +645,18 @@ class FitnessRepository:
         try:
             eligible = connection.execute(
                 """SELECT 1 FROM trainer_client_relations
-                   WHERE trainer_id=? AND client_id=? AND status IN ('accepted','expired')""",
+                   WHERE trainer_id=? AND client_id=?
+                     AND status='accepted' AND is_paid=1""",
                 (trainer_id, client_id),
             ).fetchone()
             if eligible is None:
-                raise ValueError("Trenera moze oceniti samo njegov sadasnji ili bivsi klijent.")
-            existing = connection.execute(
-                "SELECT 1 FROM trainer_ratings WHERE trainer_id=? AND client_id=?",
-                (trainer_id, client_id),
-            ).fetchone()
-            if existing:
-                raise ValueError("Trenera mozete oceniti samo jednom.")
+                raise ValueError("Mozete oceniti samo trenera sa aktivnom clanarinom.")
             connection.execute(
-                "INSERT INTO trainer_ratings(client_id, trainer_id, rating, comment) VALUES (?, ?, ?, ?)",
+                """INSERT INTO trainer_ratings(client_id, trainer_id, rating, comment)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(client_id, trainer_id) DO UPDATE SET
+                   rating=excluded.rating, comment=excluded.comment,
+                   created_at=CURRENT_TIMESTAMP""",
                 (client_id, trainer_id, rating, comment or None),
             )
             connection.commit()
@@ -560,6 +673,35 @@ class FitnessRepository:
                    rating=excluded.rating, comment=excluded.comment,
                    created_at=CURRENT_TIMESTAMP""",
                 (workout_id, exercise_id, client_id, rating, comment or None),
+            )
+            rated_exercise = connection.execute(
+                """SELECT w.trainer_id, w.name AS workout_name,
+                          e.name AS exercise_name
+                   FROM workouts w
+                   JOIN workout_exercises we ON we.workout_id=w.id
+                   JOIN exercises e ON e.id=we.exercise_id
+                   WHERE w.id=? AND we.exercise_id=? AND w.client_id=?""",
+                (workout_id, exercise_id, client_id),
+            ).fetchone()
+            message = (
+                "OCENA VEZBE\n"
+                f"Trening: {rated_exercise['workout_name']}\n"
+                f"Vezba: {rated_exercise['exercise_name']}\n"
+                f"Ocena: {rating}/5\n"
+                f"Komentar: {comment or 'Bez komentara.'}"
+            )
+            connection.execute(
+                """INSERT INTO messages(
+                       sender_id, receiver_id, text, message_type, rating_key
+                   ) VALUES (?, ?, ?, 'exercise_rating', ?)
+                   ON CONFLICT(rating_key) DO UPDATE SET
+                   text=excluded.text, created_at=CURRENT_TIMESTAMP""",
+                (
+                    client_id,
+                    rated_exercise["trainer_id"],
+                    message,
+                    f"exercise_rating:{workout_id}:{exercise_id}:{client_id}",
+                ),
             )
             connection.commit()
         finally:
@@ -581,23 +723,45 @@ class FitnessRepository:
         finally:
             connection.close()
 
-    def list_client_ratings_for_trainers(self):
+    def list_client_ratings(self, client_id):
         connection = self.connection_factory()
         try:
             return connection.execute(
                 """
-                SELECT cr.*, c.first_name || ' ' || c.last_name AS client_name,
+                SELECT cr.rating, cr.comment, cr.created_at,
                        t.first_name || ' ' || t.last_name AS trainer_name
                 FROM client_ratings cr
-                JOIN users c ON c.id=cr.client_id
                 JOIN users t ON t.id=cr.trainer_id
+                WHERE cr.client_id=?
                 ORDER BY cr.created_at DESC
-                """
+                """,
+                (client_id,),
             ).fetchall()
         finally:
             connection.close()
 
     # ----------------------- PLACANJA I PORUKE -------------------------
+    def sync_membership_statuses(self):
+        connection = self.connection_factory()
+        try:
+            connection.execute(
+                """UPDATE trainer_client_relations
+                   SET is_paid=CASE
+                       WHEN status='accepted' AND EXISTS (
+                           SELECT 1 FROM payments p
+                           WHERE p.trainer_id=trainer_client_relations.trainer_id
+                             AND p.client_id=trainer_client_relations.client_id
+                             AND p.status='paid'
+                             AND p.paid_at <= CURRENT_TIMESTAMP
+                             AND p.valid_until > CURRENT_TIMESTAMP
+                       ) THEN 1
+                       ELSE 0
+                   END"""
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
     def pay_monthly_subscription(self, trainer_id, client_id):
         connection = self.connection_factory()
         try:
@@ -626,19 +790,96 @@ class FitnessRepository:
                              datetime(CURRENT_TIMESTAMP, '+1 month'))""",
                 (trainer_id, client_id, relation["monthly_price"]),
             )
+            connection.execute(
+                """UPDATE trainer_client_relations
+                   SET is_paid=1,
+                       expiration_date = (
+                       SELECT valid_until
+                       FROM payments
+                       WHERE trainer_id=? AND client_id=? AND status='paid'
+                       ORDER BY id DESC
+                       LIMIT 1
+                   )
+                   WHERE trainer_id=? AND client_id=?""",
+                (trainer_id, client_id, trainer_id, client_id),
+            )
             connection.commit()
         finally:
             connection.close()
 
-    def list_payments_for_client(self, client_id):
+    def create_membership_notifications(self, client_id):
+        connection = self.connection_factory()
+        try:
+            payments = connection.execute(
+                """SELECT p.id, p.trainer_id, p.valid_until,
+                          t.first_name || ' ' || t.last_name AS trainer_name
+                   FROM payments p
+                   JOIN users t ON t.id=p.trainer_id
+                   WHERE p.client_id=? AND p.status='paid'""",
+                (client_id,),
+            ).fetchall()
+            for payment in payments:
+                state = connection.execute(
+                    """SELECT
+                           datetime(?) <= CURRENT_TIMESTAMP AS expired,
+                           date(?) <= date('now', 'localtime', '+3 days') AS soon""",
+                    (payment["valid_until"], payment["valid_until"]),
+                ).fetchone()
+                if state["expired"]:
+                    notification_type = "expired"
+                    message = (
+                        f"Clanarina kod trenera {payment['trainer_name']} je istekla "
+                        f"{payment['valid_until']}."
+                    )
+                elif state["soon"]:
+                    notification_type = "expiring"
+                    message = (
+                        f"Clanarina kod trenera {payment['trainer_name']} istice "
+                        f"{payment['valid_until']}."
+                    )
+                else:
+                    continue
+                connection.execute(
+                    """INSERT OR IGNORE INTO notifications(
+                           client_id, trainer_id, payment_id,
+                           notification_type, message
+                       ) VALUES (?, ?, ?, ?, ?)""",
+                    (
+                        client_id,
+                        payment["trainer_id"],
+                        payment["id"],
+                        notification_type,
+                        message,
+                    ),
+                )
+            connection.commit()
+        finally:
+            connection.close()
+
+    def list_unread_notifications(self, client_id):
         connection = self.connection_factory()
         try:
             rows = connection.execute(
-                """SELECT p.*, t.first_name || ' ' || t.last_name AS trainer_name
-                   FROM payments p JOIN users t ON t.id=p.trainer_id
-                   WHERE p.client_id=? ORDER BY p.paid_at DESC""", (client_id,)
+                """SELECT id, client_id, trainer_id, payment_id,
+                          notification_type, message, is_read, created_at
+                   FROM notifications
+                   WHERE client_id=? AND is_read=0
+                   ORDER BY created_at, id""",
+                (client_id,),
             ).fetchall()
-            return [self._to_payment(row) for row in rows]
+            return [self._to_notification(row) for row in rows]
+        finally:
+            connection.close()
+
+    def mark_notification_read(self, notification_id, client_id):
+        connection = self.connection_factory()
+        try:
+            connection.execute(
+                """UPDATE notifications SET is_read=1
+                   WHERE id=? AND client_id=?""",
+                (notification_id, client_id),
+            )
+            connection.commit()
         finally:
             connection.close()
 
@@ -650,6 +891,22 @@ class FitnessRepository:
                 (sender_id, receiver_id, text),
             )
             connection.commit()
+        finally:
+            connection.close()
+
+    def get_admin_id(self):
+        connection = self.connection_factory()
+        try:
+            row = connection.execute(
+                """
+                SELECT id
+                FROM users
+                WHERE role = 'admin' AND registration_status = 'approved'
+                ORDER BY id
+                LIMIT 1
+                """
+            ).fetchone()
+            return row["id"] if row else None
         finally:
             connection.close()
 

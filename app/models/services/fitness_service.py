@@ -1,3 +1,5 @@
+from datetime import date
+
 from app.models.services.validation import (
     parse_client_request,
     parse_rating,
@@ -13,23 +15,32 @@ class FitnessService:
         self.user_repository = user_repository
 
     def get_client_dashboard_data(self, client_id):
+        self.fitness_repository.sync_membership_statuses()
+        self.fitness_repository.mark_overdue_workouts()
         return {
-            "trainers": self.fitness_repository.list_available_trainers(),
+            "trainers": self.fitness_repository.list_available_trainers(client_id),
             "relations": self.fitness_repository.list_client_relations(client_id),
-            "workouts": self.fitness_repository.list_client_workouts(client_id),
-            "payments": self.fitness_repository.list_payments_for_client(client_id),
         }
 
     def get_trainer_dashboard_data(self, trainer_id):
+        self.fitness_repository.sync_membership_statuses()
+        self.fitness_repository.mark_overdue_workouts()
         return {
-            "profile": self.fitness_repository.get_trainer_profile(trainer_id),
             "requests": self.fitness_repository.list_trainer_requests(trainer_id),
             "clients": self.fitness_repository.list_accepted_clients(trainer_id),
-            "exercises": self.fitness_repository.list_exercises(),
-            "equipment": self.fitness_repository.list_equipment(),
-            "workouts": self.fitness_repository.list_trainer_workouts(trainer_id),
-            "client_ratings": self.fitness_repository.list_client_ratings_for_trainers(),
         }
+
+    def get_trainer_profile(self, trainer_id):
+        return self.fitness_repository.get_trainer_profile(trainer_id)
+
+    def get_exercises(self):
+        return self.fitness_repository.list_exercises()
+
+    def get_equipment(self):
+        return self.fitness_repository.list_equipment()
+
+    def get_client_ratings(self, client_id):
+        return self.fitness_repository.list_client_ratings(client_id)
 
     def send_client_request(self, trainer_id, client_id, data):
         request = parse_client_request(data)
@@ -41,26 +52,63 @@ class FitnessService:
             trainer_id, client_id, **request, monthly_price=monthly_price
         )
 
+    def get_client_workouts(self, client_id, trainer_id):
+        self.fitness_repository.sync_membership_statuses()
+        self.fitness_repository.mark_overdue_workouts()
+        if self.fitness_repository.get_active_membership_expiration(
+            trainer_id, client_id
+        ) is None:
+            raise ValueError("Treninzi se mogu otvoriti samo tokom aktivne clanarine.")
+        return self.fitness_repository.list_client_workouts(client_id, trainer_id)
+
     def get_workout_exercises(self, workout_id, client_id):
         return self.fitness_repository.list_workout_exercises(workout_id, client_id)
 
     def rate_workout(self, workout_id, client_id, rating, comment):
+        self._validate_client_workout_action(workout_id, client_id)
+        if not self.fitness_repository.all_workout_exercises_completed(workout_id):
+            raise ValueError("Prvo oznacite sve vezbe iz treninga kao odradjene.")
         self.fitness_repository.rate_workout(
             workout_id, client_id, parse_rating(rating), comment.strip()
         )
 
     def rate_trainer(self, trainer_id, client_id, rating, comment):
+        self.fitness_repository.sync_membership_statuses()
         self.fitness_repository.rate_trainer(
             trainer_id, client_id, parse_rating(rating), comment.strip()
         )
 
     def rate_exercise(self, workout_id, exercise_id, client_id, rating, comment):
+        self._validate_client_workout_action(workout_id, client_id)
+        if not self.fitness_repository.is_workout_exercise_completed(
+            workout_id, exercise_id
+        ):
+            raise ValueError("Vezbu mozete oceniti tek kada je oznacite kao odradjenu.")
         self.fitness_repository.rate_exercise(
             workout_id, exercise_id, client_id, parse_rating(rating), comment.strip()
         )
 
+    def set_exercise_completed(
+        self, workout_id, exercise_id, client_id, completed
+    ):
+        workout = self._validate_client_workout_action(workout_id, client_id)
+        if workout["status"] != "assigned":
+            raise ValueError("Zavrsen trening vise ne mozete menjati.")
+        self.fitness_repository.set_workout_exercise_completed(
+            workout_id, exercise_id, client_id, completed
+        )
+
     def pay_membership(self, trainer_id, client_id):
+        self.fitness_repository.sync_membership_statuses()
         self.fitness_repository.pay_monthly_subscription(trainer_id, client_id)
+
+    def get_unread_notifications(self, client_id):
+        self.fitness_repository.sync_membership_statuses()
+        self.fitness_repository.create_membership_notifications(client_id)
+        return self.fitness_repository.list_unread_notifications(client_id)
+
+    def mark_notification_read(self, notification_id, client_id):
+        self.fitness_repository.mark_notification_read(notification_id, client_id)
 
     def update_client_profile(self, user_id, data):
         error = validate_profile_data(data)
@@ -104,8 +152,8 @@ class FitnessService:
         if duration is not None and duration <= 0:
             raise ValueError("Trajanje mora biti pozitivan ceo broj.")
         self.fitness_repository.save_exercise(
-            data["id"], data["name"], data["description"], data["video_url"],
-            duration, data["equipment_id"],
+            data["id"], data["name"], data["description"], duration,
+            data["equipment_id"],
         )
 
     def delete_exercise(self, exercise_id):
@@ -128,19 +176,66 @@ class FitnessService:
             raise ValueError("Naziv treninga je obavezan.")
         if not exercise_ids:
             raise ValueError("Izaberite bar jednu vezbu.")
+        deadline = self._validate_workout_deadline(scheduled_date)
+        self._validate_workout_assignment(trainer_id, client_id, deadline)
         self.fitness_repository.create_workout(
             trainer_id, client_id, name, exercise_ids, scheduled_date
         )
 
-    def copy_workout(self, trainer_id, workout_id, client_id):
-        self.fitness_repository.copy_workout_to_client(
-            trainer_id, workout_id, client_id
-        )
+    @staticmethod
+    def _validate_workout_deadline(scheduled_date):
+        if not scheduled_date:
+            raise ValueError("Rok za zavrsetak treninga je obavezan.")
+        try:
+            deadline = date.fromisoformat(scheduled_date)
+        except ValueError as error:
+            raise ValueError("Rok mora biti datum u formatu GGGG-MM-DD.") from error
+        if deadline < date.today():
+            raise ValueError("Rok za trening ne moze biti u proslosti.")
+        return deadline
 
-    def mark_workout_missed(self, trainer_id, workout_id):
-        self.fitness_repository.update_workout_status(
-            trainer_id, workout_id, "missed"
+    def _validate_workout_assignment(self, trainer_id, client_id, deadline):
+        self.fitness_repository.sync_membership_statuses()
+        self.fitness_repository.mark_overdue_workouts()
+        expiration = self.fitness_repository.get_active_membership_expiration(
+            trainer_id, client_id
         )
+        if expiration is None:
+            raise ValueError(
+                "Klijent nema aktivnu mesecnu clanarinu kod ovog trenera."
+            )
+        membership_deadline = date.fromisoformat(expiration[:10])
+        if deadline >= membership_deadline:
+            raise ValueError(
+                "Rok treninga mora biti pre isteka clanarine "
+                f"({membership_deadline.isoformat()})."
+            )
+        missed_count = (
+            self.fitness_repository.count_missed_workouts_in_active_membership(
+                trainer_id, client_id
+            )
+        )
+        if missed_count >= 2:
+            raise ValueError(
+                "Klijent je u ovoj clanarini propustio dva treninga. "
+                "Novi trening moze dobiti tek posle sledece mesecne uplate."
+            )
+
+    def _validate_client_workout_action(self, workout_id, client_id):
+        self.fitness_repository.sync_membership_statuses()
+        self.fitness_repository.mark_overdue_workouts()
+        workout = self.fitness_repository.get_client_workout(workout_id, client_id)
+        if workout is None:
+            raise ValueError("Trening nije pronadjen.")
+        if workout["status"] == "missed":
+            raise ValueError("Rok za ovaj trening je istekao.")
+        if date.fromisoformat(workout["scheduled_date"]) < date.today():
+            raise ValueError("Rok za ovaj trening je istekao.")
+        if self.fitness_repository.get_active_membership_expiration(
+            workout["trainer_id"], client_id
+        ) is None:
+            raise ValueError("Clanarina kod ovog trenera vise nije aktivna.")
+        return workout
 
     def save_client_rating(self, trainer_id, client_id, rating, comment):
         self.fitness_repository.save_client_rating(
@@ -155,3 +250,9 @@ class FitnessService:
         if not text:
             raise ValueError("Poruka ne moze biti prazna.")
         self.fitness_repository.send_message(sender_id, receiver_id, text)
+
+    def get_admin_id(self):
+        admin_id = self.fitness_repository.get_admin_id()
+        if admin_id is None:
+            raise ValueError("Administrator nije pronadjen.")
+        return admin_id

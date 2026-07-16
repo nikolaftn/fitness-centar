@@ -13,5 +13,5 @@ class LoginService:
         if user.registration_status == "pending":
             raise ValueError("Zahtev za registraciju jos ceka odobrenje administratora.")
         if user.registration_status == "rejected":
-            raise ValueError("Zahtev za registraciju je odbijen.")
+            raise ValueError("Zahtev za registraciju Vam je odbijen, nalog nije u funkciji.")
         return user

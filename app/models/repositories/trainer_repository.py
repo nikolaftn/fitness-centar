@@ -85,3 +85,36 @@ class TrainerRepository:
             ).fetchall()
         finally:
             connection.close()
+
+    def is_approved_trainer(self, trainer_id):
+        connection = self.connection_factory()
+        try:
+            return connection.execute(
+                """
+                SELECT 1
+                FROM users
+                WHERE id = ?
+                  AND role = 'trainer'
+                  AND registration_status = 'approved'
+                """,
+                (trainer_id,),
+            ).fetchone() is not None
+        finally:
+            connection.close()
+
+    def delete_trainer(self, trainer_id):
+        connection = self.connection_factory()
+        try:
+            cursor = connection.execute(
+                """
+                DELETE FROM users
+                WHERE id = ?
+                  AND role = 'trainer'
+                  AND registration_status = 'approved'
+                """,
+                (trainer_id,),
+            )
+            connection.commit()
+            return cursor.rowcount == 1
+        finally:
+            connection.close()

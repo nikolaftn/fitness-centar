@@ -1,6 +1,7 @@
 class AdminService:
-    def __init__(self, trainer_repository):
+    def __init__(self, trainer_repository, fitness_repository):
         self.trainer_repository = trainer_repository
+        self.fitness_repository = fitness_repository
 
     def get_dashboard_data(self):
         return (
@@ -12,4 +13,23 @@ class AdminService:
         if decision not in {"approved", "rejected"}:
             raise ValueError("Neispravna odluka.")
         return self.trainer_repository.decide_registration(trainer_id, decision)
+
+    def delete_trainer(self, trainer_id):
+        if not self.trainer_repository.delete_trainer(trainer_id):
+            raise ValueError("Trener ne postoji ili vise nije odobren.")
+
+    def get_messages(self, admin_id, trainer_id):
+        self._validate_trainer(trainer_id)
+        return self.fitness_repository.list_messages(admin_id, trainer_id)
+
+    def send_message(self, admin_id, trainer_id, text):
+        self._validate_trainer(trainer_id)
+        text = text.strip()
+        if not text:
+            raise ValueError("Poruka ne moze biti prazna.")
+        self.fitness_repository.send_message(admin_id, trainer_id, text)
+
+    def _validate_trainer(self, trainer_id):
+        if not self.trainer_repository.is_approved_trainer(trainer_id):
+            raise ValueError("Izabrani trener ne postoji ili vise nije odobren.")
 

@@ -1,10 +1,12 @@
 from app.controllers.app_controller import AppController
-from app.database import add_test_data, initialize_database
+from app.database import require_database
 
 
 def main():
-    initialize_database()
-    add_test_data()
+    try:
+        require_database()
+    except FileNotFoundError as error:
+        raise SystemExit(str(error)) from error
 
     controller = AppController()
     controller.run()
