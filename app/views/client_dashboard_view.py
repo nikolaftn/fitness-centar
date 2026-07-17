@@ -153,11 +153,11 @@ class ClientDashboardView:
         return entry
 
     @staticmethod
-    def _format_trainer(row):
+    def _format_trainer(profile):
         return (
-            f"{row['first_name']} {row['last_name']}\n"
-            f"Cena treninga: {row['price_per_training']:.2f} | "
-            f"Ocena: {row['average_rating'] or 'nema'}"
+            f"{profile.full_name}\n"
+            f"Cena treninga: {profile.price_per_training:.2f} | "
+            f"Ocena: {profile.average_rating or 'nema'}"
         )
 
     @staticmethod
@@ -172,17 +172,17 @@ class ClientDashboardView:
         self.trainer_details.configure(text="Izaberite trenera.")
         self.trainers_list.set_rows(
             rows,
-            "id",
+            "user_id",
             self._format_trainer,
             self._show_trainer_details,
         )
 
-    def _show_trainer_details(self, row):
+    def _show_trainer_details(self, profile):
         self.trainer_details.configure(
             text=(
-                f"Skolovanje: {row['education'] or '-'}\n"
-                f"Iskustvo: {row['years_of_experience']} godina\n"
-                f"Biografija: {row['biography'] or '-'}"
+                f"Skolovanje: {profile.education or '-'}\n"
+                f"Iskustvo: {profile.years_of_experience} godina\n"
+                f"Biografija: {profile.biography or '-'}"
             )
         )
 

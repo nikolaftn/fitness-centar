@@ -116,7 +116,7 @@ class ClientWorkoutsView:
                 card,
                 text=(
                     f"{exercise.exercise_order}. {exercise.name}\n"
-                    f"{exercise.duration_minutes or '-'} min | "
+                    f"{exercise.shown_duration_minutes or '-'} min | "
                     f"oprema: {exercise.equipment_name or 'bez opreme'}"
                 ),
                 variable=completed,

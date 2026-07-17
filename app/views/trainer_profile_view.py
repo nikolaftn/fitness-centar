@@ -41,7 +41,7 @@ class TrainerProfileView:
             ctk.CTkLabel(self.window, text=label).pack(anchor="w", padx=22)
             entry = ctk.CTkEntry(self.window)
             entry.pack(fill="x", padx=18, pady=(2, 8))
-            value = profile[key]
+            value = getattr(profile, key)
             entry.insert(0, "" if value is None else str(value))
             self.entries[key] = entry
 

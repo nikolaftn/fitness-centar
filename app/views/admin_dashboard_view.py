@@ -193,13 +193,13 @@ class AdminDashboardView:
             self.ratings_table.insert(
                 "",
                 "end",
-                iid=str(trainer["id"]),
+                iid=str(trainer.user.id),
                 values=(
-                    f"{trainer['first_name']} {trainer['last_name']}",
-                    trainer["username"],
-                    trainer["education"] or "",
-                    trainer["average_rating"] or "Nema",
-                    trainer["rating_count"],
+                    trainer.full_name,
+                    trainer.username,
+                    trainer.education or "",
+                    trainer.average_rating or "Nema",
+                    trainer.rating_count,
                 ),
             )
 
@@ -211,18 +211,26 @@ class AdminDashboardView:
         }
         for item in self.rents_table.get_children():
             self.rents_table.delete(item)
-        for payment in payments:
-            status = payment["rent_status"]
+        for profile, payment in payments:
+            status = "unpaid"
+            amount = 30000.0
+            paid_at = None
+            valid_until = None
+            if payment:
+                status = payment.rent_status
+                amount = payment.amount
+                paid_at = payment.paid_at
+                valid_until = payment.valid_until
             self.rents_table.insert(
                 "",
                 "end",
-                iid=str(payment["id"]),
+                iid=str(profile.user.id),
                 values=(
-                    f"{payment['first_name']} {payment['last_name']}",
-                    payment["username"],
-                    f"{payment['amount']:.2f}" if payment["amount"] else "-",
-                    payment["paid_at"] or "-",
-                    payment["valid_until"] or "-",
+                    profile.full_name,
+                    profile.username,
+                    f"{amount:.2f}",
+                    paid_at or "-",
+                    valid_until or "-",
                     status_text[status],
                 ),
                 tags=(status,),

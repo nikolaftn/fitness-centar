@@ -37,7 +37,7 @@ class ClientDashboardController:
             return
         try:
             self.fitness_service.send_client_request(
-                trainer["id"],
+                trainer.user.id,
                 self.user.id,
                 self.view.get_request_data(),
             )

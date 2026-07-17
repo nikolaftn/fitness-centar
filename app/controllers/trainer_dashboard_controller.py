@@ -53,7 +53,7 @@ class TrainerDashboardController:
         try:
             changed = self.fitness_service.decide_client_request(
                 self.user.id,
-                request["client_id"],
+                request.client.id,
                 status,
             )
         except ValueError as error:
@@ -75,10 +75,10 @@ class TrainerDashboardController:
         if request is None:
             self.view.show_error("Izaberite zahtev klijenta.")
             return
-        ratings = self.fitness_service.get_client_ratings(request["client_id"])
+        ratings = self.fitness_service.get_client_ratings(request.client.id)
         self.ratings_view = ClientRatingsView(
             self.view.window,
-            request["client_name"],
+            request.client.full_name,
             ratings,
         )
 
@@ -87,7 +87,7 @@ class TrainerDashboardController:
         if client is None:
             self.view.show_error("Izaberite aktivnog klijenta.")
             return
-        if client["missed_count"] >= 2:
+        if client.missed_count >= 2:
             self.view.show_error(
                 "Klijent je u ovoj clanarini propustio dva treninga. "
                 "Novi trening moze dobiti tek posle sledece mesecne uplate."
@@ -99,7 +99,7 @@ class TrainerDashboardController:
         self.workout_view = WorkoutAssignmentView(
             self.view.window,
             self,
-            client["client_name"],
+            client.client.full_name,
         )
         self.workout_view.show_exercises(self.fitness_service.get_exercises())
 
@@ -108,7 +108,7 @@ class TrainerDashboardController:
         try:
             self.fitness_service.create_workout(
                 self.user.id,
-                self.workout_client["id"],
+                self.workout_client.client.id,
                 data["name"],
                 data["exercise_ids"],
                 data["deadline"],
@@ -116,7 +116,7 @@ class TrainerDashboardController:
         except ValueError as error:
             self.workout_view.show_error(str(error))
             return
-        client_name = self.workout_client["client_name"]
+        client_name = self.workout_client.client.full_name
         self.close_workout_assignment()
         self.view.show_info(f"Trening je dodeljen klijentu {client_name}.")
         self.refresh()
@@ -133,15 +133,15 @@ class TrainerDashboardController:
             self.view.show_error("Izaberite aktivnog klijenta.")
             return
         if self.client_chat_controller and self.client_chat_controller.is_open():
-            if self.client_chat_controller.other_user_id == client["id"]:
+            if self.client_chat_controller.other_user_id == client.client.id:
                 self.client_chat_controller.focus()
                 return
             self.client_chat_controller.close()
         self.client_chat_controller = ChatController(
             self.view.window,
             self.user.id,
-            client["id"],
-            client["client_name"],
+            client.client.id,
+            client.client.full_name,
             self.fitness_service,
         )
 
@@ -156,7 +156,7 @@ class TrainerDashboardController:
         self.client_rating_view = ClientRatingView(
             self.view.window,
             self,
-            client["client_name"],
+            client.client.full_name,
         )
 
     def submit_client_rating(self):
@@ -164,7 +164,7 @@ class TrainerDashboardController:
         try:
             self.fitness_service.save_client_rating(
                 self.user.id,
-                self.client_rating_client["id"],
+                self.client_rating_client.client.id,
                 rating,
                 comment,
             )

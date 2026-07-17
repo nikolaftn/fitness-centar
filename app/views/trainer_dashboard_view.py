@@ -176,15 +176,15 @@ class TrainerDashboardView:
         ).pack(fill="x", padx=14, pady=(0, 14))
 
     @staticmethod
-    def _format_request(row):
-        return f"{row['client_name']} ({row['client_username']})"
+    def _format_request(relation):
+        return f"{relation.client.full_name} ({relation.client.username})"
 
     @staticmethod
-    def _format_client(row):
+    def _format_client(relation):
         return (
-            f"{row['client_name']} ({row['username']})\n"
-            f"Clanarina do: {row['active_until']} | "
-            f"Propusteno: {row['missed_count']}"
+            f"{relation.client.full_name} ({relation.client.username})\n"
+            f"Clanarina do: {relation.active_until} | "
+            f"Propusteno: {relation.missed_count}"
         )
 
     def show_requests(self, rows):
@@ -196,18 +196,18 @@ class TrainerDashboardView:
             self._show_request_details,
         )
 
-    def _show_request_details(self, row):
+    def _show_request_details(self, relation):
         self.request_details.configure(
             text=(
-                f"Klijent: {row['client_name']}\n"
-                f"Korisnicko ime: {row['client_username']}\n"
-                f"Treninzi nedeljno: {row['workouts_per_week']}\n"
-                f"Ciljevi: {row['goals'] or '-'}\n"
-                f"Visina: {row['height_cm'] or '-'} cm\n"
-                f"Tezina: {row['weight_kg'] or '-'} kg\n"
-                f"Mesto treninga: {row['training_location'] or '-'}\n"
-                f"Zdravstveni problemi: {row['health_conditions'] or '-'}\n"
-                f"Mesecna cena: {row['monthly_price'] or 0:.2f}"
+                f"Klijent: {relation.client.full_name}\n"
+                f"Korisnicko ime: {relation.client.username}\n"
+                f"Treninzi nedeljno: {relation.workouts_per_week}\n"
+                f"Ciljevi: {relation.goals or '-'}\n"
+                f"Visina: {relation.height_cm or '-'} cm\n"
+                f"Tezina: {relation.weight_kg or '-'} kg\n"
+                f"Mesto treninga: {relation.training_location or '-'}\n"
+                f"Zdravstveni problemi: {relation.health_conditions or '-'}\n"
+                f"Mesecna cena: {relation.monthly_price or 0:.2f}"
             )
         )
 
@@ -215,26 +215,26 @@ class TrainerDashboardView:
         self.client_details.configure(text="Izaberite klijenta.")
         self.clients_list.set_rows(
             rows,
-            "id",
+            "client_id",
             self._format_client,
             self._show_client_details,
         )
 
     def show_center_rent(self, payment):
-        amount = payment["amount"] or 0
-        if payment["rent_status"] == "active":
+        amount = payment.amount if payment else 30000.0
+        if payment and payment.rent_status == "active":
             self.center_rent_label.configure(
                 text=(
-                    f"Zakup fitnes centra je placen do {payment['valid_until']} | "
+                    f"Zakup fitnes centra je placen do {payment.valid_until} | "
                     f"Iznos: {amount:.2f}"
                 ),
                 text_color="darkgreen",
             )
             self.center_rent_button.configure(text="Zakup je placen", state="disabled")
-        elif payment["rent_status"] == "expired":
+        elif payment:
             self.center_rent_label.configure(
                 text=(
-                    f"Zakup fitnes centra je istekao {payment['valid_until']} | "
+                    f"Zakup fitnes centra je istekao {payment.valid_until} | "
                     f"Mesecni iznos: {amount:.2f}"
                 ),
                 text_color="firebrick",
@@ -251,15 +251,15 @@ class TrainerDashboardView:
                 text=f"Plati mesecni zakup {amount:.2f}", state="normal"
             )
 
-    def _show_client_details(self, row):
+    def _show_client_details(self, relation):
         self.client_details.configure(
             text=(
-                f"Ciljevi: {row['goals'] or '-'}\n"
-                f"Treninzi nedeljno: {row['workouts_per_week']}\n"
-                f"Visina/tezina: {row['height_cm'] or '-'} cm / "
-                f"{row['weight_kg'] or '-'} kg\n"
-                f"Mesto treninga: {row['training_location'] or '-'}\n"
-                f"Zdravstveni problemi: {row['health_conditions'] or '-'}"
+                f"Ciljevi: {relation.goals or '-'}\n"
+                f"Treninzi nedeljno: {relation.workouts_per_week}\n"
+                f"Visina/tezina: {relation.height_cm or '-'} cm / "
+                f"{relation.weight_kg or '-'} kg\n"
+                f"Mesto treninga: {relation.training_location or '-'}\n"
+                f"Zdravstveni problemi: {relation.health_conditions or '-'}"
             )
         )
 

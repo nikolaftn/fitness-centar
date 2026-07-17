@@ -1,58 +1,43 @@
 import sqlite3
+from datetime import datetime
 
 from app.database import get_connection
-from app.models.domain.user import User
+from app.models.domain.fitness_entities import TrainerProfile, User
 
 
 class UsernameAlreadyExistsError(ValueError):
-    """Korisnicko ime vec postoji u bazi."""
+    pass
 
 
 class UserRepository:
-    """Svi SQL upiti vezani za korisnike i njihove profile."""
+    """Radi nad User objektima i cuva njihove izmene u bazi."""
 
-    def __init__(self, connection_factory=get_connection):
+    def __init__(self, application_data, connection_factory=get_connection):
+        self.data = application_data
         self.connection_factory = connection_factory
 
-    @staticmethod
-    def _to_user(row):
-        if row is None:
-            return None
-        return User(
-            id=row["id"],
-            username=row["username"],
-            role=row["role"],
-            first_name=row["first_name"],
-            last_name=row["last_name"],
-            birth_date=row["birth_date"],
-            registration_status=row["registration_status"],
-        )
-
     def find_by_username(self, username):
-        connection = self.connection_factory()
-        try:
-            row = connection.execute(
-                """
-                SELECT id, username, role, first_name, last_name, birth_date,
-                       registration_status
-                FROM users
-                WHERE username = ? COLLATE NOCASE
-                """,
-                (username,),
-            ).fetchone()
-            return self._to_user(row)
-        finally:
-            connection.close()
+        wanted_username = username.lower()
+        for user in self.data.users.values():
+            if user.username.lower() == wanted_username:
+                return user
+        return None
+
+    def authenticate(self, username, password):
+        user = self.find_by_username(username)
+        if user is None or user.password != password:
+            return None
+        return user
 
     def create_client(self, username, password, first_name, last_name, birth_date):
         return self._create_user(
-            username=username,
-            password=password,
-            role="client",
-            first_name=first_name,
-            last_name=last_name,
-            birth_date=birth_date,
-            registration_status="approved",
+            username,
+            password,
+            "client",
+            first_name,
+            last_name,
+            birth_date,
+            "approved",
         )
 
     def create_trainer(
@@ -66,18 +51,27 @@ class UserRepository:
         years_of_experience,
         price_per_training,
     ):
+        self._check_username(username)
+        created_at = self._current_time()
         connection = self.connection_factory()
         try:
-            user_id = self._insert_user(
-                connection=connection,
-                username=username,
-                password=password,
-                role="trainer",
-                first_name=first_name,
-                last_name=last_name,
-                birth_date=birth_date,
-                registration_status="pending",
+            cursor = connection.execute(
+                """
+                INSERT INTO users (
+                    username, role, first_name, last_name, birth_date,
+                    password, registration_status, created_at
+                ) VALUES (?, 'trainer', ?, ?, ?, ?, 'pending', ?)
+                """,
+                (
+                    username,
+                    first_name,
+                    last_name,
+                    birth_date,
+                    password,
+                    created_at,
+                ),
             )
+            user_id = cursor.lastrowid
             connection.execute(
                 """
                 INSERT INTO trainer_profiles (
@@ -87,13 +81,35 @@ class UserRepository:
                 (user_id, education or None, years_of_experience, price_per_training),
             )
             connection.commit()
-            return self._find_by_id(connection, user_id)
         except sqlite3.IntegrityError as error:
             connection.rollback()
             self._raise_readable_integrity_error(error)
             raise
         finally:
             connection.close()
+
+        user = User(
+            user_id,
+            username,
+            "trainer",
+            first_name,
+            last_name,
+            birth_date,
+            password,
+            "pending",
+            created_at,
+        )
+        profile = TrainerProfile(
+            user,
+            education or None,
+            None,
+            None,
+            years_of_experience,
+            price_per_training,
+        )
+        self.data.users[user.id] = user
+        self.data.trainer_profiles[user.id] = profile
+        return user
 
     def _create_user(
         self,
@@ -105,20 +121,29 @@ class UserRepository:
         birth_date,
         registration_status,
     ):
+        self._check_username(username)
+        created_at = self._current_time()
         connection = self.connection_factory()
         try:
-            user_id = self._insert_user(
-                connection=connection,
-                username=username,
-                password=password,
-                role=role,
-                first_name=first_name,
-                last_name=last_name,
-                birth_date=birth_date,
-                registration_status=registration_status,
+            cursor = connection.execute(
+                """
+                INSERT INTO users (
+                    username, role, first_name, last_name, birth_date,
+                    password, registration_status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    username,
+                    role,
+                    first_name,
+                    last_name,
+                    birth_date,
+                    password,
+                    registration_status,
+                    created_at,
+                ),
             )
             connection.commit()
-            return self._find_by_id(connection, user_id)
         except sqlite3.IntegrityError as error:
             connection.rollback()
             self._raise_readable_integrity_error(error)
@@ -126,81 +151,25 @@ class UserRepository:
         finally:
             connection.close()
 
-    def _insert_user(
-        self,
-        connection,
-        username,
-        password,
-        role,
-        first_name,
-        last_name,
-        birth_date,
-        registration_status,
-    ):
-        username_exists = connection.execute(
-            "SELECT 1 FROM users WHERE username = ? COLLATE NOCASE",
-            (username,),
-        ).fetchone()
-        if username_exists:
-            raise UsernameAlreadyExistsError("Korisnicko ime je vec zauzeto.")
-
-        cursor = connection.execute(
-            """
-            INSERT INTO users (
-                username, role, first_name, last_name, birth_date,
-                password, registration_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                username,
-                role,
-                first_name,
-                last_name,
-                birth_date,
-                password,
-                registration_status,
-            ),
+        user = User(
+            cursor.lastrowid,
+            username,
+            role,
+            first_name,
+            last_name,
+            birth_date,
+            password,
+            registration_status,
+            created_at,
         )
-        return cursor.lastrowid
-
-    @staticmethod
-    def _raise_readable_integrity_error(error):
-        if "users.username" in str(error):
-            raise UsernameAlreadyExistsError(
-                "Korisnicko ime je vec zauzeto."
-            ) from error
-
-    def _find_by_id(self, connection, user_id):
-        row = connection.execute(
-            """
-            SELECT id, username, role, first_name, last_name, birth_date,
-                   registration_status
-            FROM users
-            WHERE id = ?
-            """,
-            (user_id,),
-        ).fetchone()
-        return self._to_user(row)
-
-    def authenticate(self, username, password):
-        connection = self.connection_factory()
-        try:
-            row = connection.execute(
-                """
-                SELECT id, username, role, first_name, last_name, birth_date,
-                       registration_status, password
-                FROM users
-                WHERE username = ? COLLATE NOCASE
-                """,
-                (username,),
-            ).fetchone()
-            if row is None or row["password"] != password:
-                return None
-            return self._to_user(row)
-        finally:
-            connection.close()
+        self.data.users[user.id] = user
+        return user
 
     def update_profile(self, user_id, first_name, last_name, birth_date):
+        user = self.data.users.get(user_id)
+        if user is None:
+            raise ValueError("Korisnik nije pronadjen.")
+
         connection = self.connection_factory()
         try:
             connection.execute(
@@ -209,9 +178,28 @@ class UserRepository:
                 SET first_name = ?, last_name = ?, birth_date = ?
                 WHERE id = ?
                 """,
-                (first_name, last_name, birth_date, user_id),
+                (first_name, last_name, birth_date, user.id),
             )
             connection.commit()
-            return self._find_by_id(connection, user_id)
         finally:
             connection.close()
+
+        user.first_name = first_name
+        user.last_name = last_name
+        user.birth_date = birth_date
+        return user
+
+    def _check_username(self, username):
+        if self.find_by_username(username) is not None:
+            raise UsernameAlreadyExistsError("Korisnicko ime je vec zauzeto.")
+
+    @staticmethod
+    def _current_time():
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    @staticmethod
+    def _raise_readable_integrity_error(error):
+        if "users.username" in str(error):
+            raise UsernameAlreadyExistsError(
+                "Korisnicko ime je vec zauzeto."
+            ) from error

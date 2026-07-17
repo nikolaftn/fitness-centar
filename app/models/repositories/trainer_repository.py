@@ -1,120 +1,98 @@
 from app.database import get_connection
-from app.models.domain.trainer_registration import TrainerRegistration
 
 
 class TrainerRepository:
-    """SQL upiti za pregled i odobravanje trenera."""
+    """Radi nad trenerima koji su vec ucitani u memoriju."""
 
-    def __init__(self, connection_factory=get_connection):
+    def __init__(self, application_data, connection_factory=get_connection):
+        self.data = application_data
         self.connection_factory = connection_factory
 
-    @staticmethod
-    def _to_registration(row):
-        return TrainerRegistration(
-            user_id=row["user_id"],
-            username=row["username"],
-            first_name=row["first_name"],
-            last_name=row["last_name"],
-            education=row["education"] or "",
-            years_of_experience=row["years_of_experience"],
-            price_per_training=row["price_per_training"],
-        )
-
     def list_pending_registrations(self):
-        connection = self.connection_factory()
-        try:
-            rows = connection.execute(
-                """
-                SELECT users.id AS user_id, users.username, users.first_name,
-                       users.last_name, trainer_profiles.education,
-                       trainer_profiles.years_of_experience,
-                       trainer_profiles.price_per_training
-                FROM users
-                JOIN trainer_profiles ON trainer_profiles.user_id = users.id
-                WHERE users.role = 'trainer'
-                  AND users.registration_status = 'pending'
-                ORDER BY users.created_at, users.id
-                """
-            ).fetchall()
-            return [self._to_registration(row) for row in rows]
-        finally:
-            connection.close()
+        profiles = []
+        for profile in self.data.trainer_profiles.values():
+            if profile.user.registration_status == "pending":
+                profiles.append(profile)
+        return sorted(profiles, key=self._registration_sort_key)
 
     def decide_registration(self, trainer_id, decision):
         if decision not in {"approved", "rejected"}:
             raise ValueError("Odluka mora biti 'approved' ili 'rejected'.")
 
+        trainer = self.data.users.get(trainer_id)
+        if trainer is None or trainer.role != "trainer":
+            return False
+        if trainer.registration_status != "pending":
+            return False
+
         connection = self.connection_factory()
         try:
-            cursor = connection.execute(
-                """
-                UPDATE users
-                SET registration_status = ?
-                WHERE id = ?
-                  AND role = 'trainer'
-                  AND registration_status = 'pending'
-                """,
-                (decision, trainer_id),
+            connection.execute(
+                "UPDATE users SET registration_status = ? WHERE id = ?",
+                (decision, trainer.id),
             )
             connection.commit()
-            return cursor.rowcount == 1
         finally:
             connection.close()
+
+        trainer.registration_status = decision
+        return True
 
     def list_trainers_by_average_rating(self):
-        connection = self.connection_factory()
-        try:
-            return connection.execute(
-                """
-                SELECT users.id, users.username, users.first_name, users.last_name,
-                       trainer_profiles.education,
-                       ROUND(AVG(trainer_ratings.rating), 2) AS average_rating,
-                       COUNT(trainer_ratings.rating) AS rating_count
-                FROM users
-                JOIN trainer_profiles ON trainer_profiles.user_id = users.id
-                LEFT JOIN trainer_ratings ON trainer_ratings.trainer_id = users.id
-                WHERE users.role = 'trainer'
-                  AND users.registration_status = 'approved'
-                GROUP BY users.id
-                ORDER BY average_rating IS NULL,
-                         average_rating DESC,
-                         rating_count DESC,
-                         users.last_name,
-                         users.first_name
-                """
-            ).fetchall()
-        finally:
-            connection.close()
+        profiles = []
+        for profile in self.data.trainer_profiles.values():
+            if profile.user.registration_status != "approved":
+                continue
+
+            ratings = []
+            for rating in self.data.trainer_ratings.values():
+                if rating.trainer is profile.user:
+                    ratings.append(rating.rating)
+
+            profile.rating_count = len(ratings)
+            profile.average_rating = None
+            if ratings:
+                profile.average_rating = round(sum(ratings) / len(ratings), 2)
+            profiles.append(profile)
+
+        return sorted(profiles, key=self._rating_sort_key)
 
     def is_approved_trainer(self, trainer_id):
+        trainer = self.data.users.get(trainer_id)
+        return bool(
+            trainer
+            and trainer.role == "trainer"
+            and trainer.registration_status == "approved"
+        )
+
+    def delete_trainer(self, trainer_id):
+        if not self.is_approved_trainer(trainer_id):
+            return False
+
         connection = self.connection_factory()
         try:
-            return connection.execute(
-                """
-                SELECT 1
-                FROM users
-                WHERE id = ?
-                  AND role = 'trainer'
-                  AND registration_status = 'approved'
-                """,
-                (trainer_id,),
-            ).fetchone() is not None
+            connection.execute("DELETE FROM users WHERE id = ?", (trainer_id,))
+            connection.commit()
         finally:
             connection.close()
 
-    def delete_trainer(self, trainer_id):
-        connection = self.connection_factory()
-        try:
-            cursor = connection.execute(
-                """
-                DELETE FROM users
-                WHERE id = ?
-                  AND role = 'trainer'
-                  AND registration_status = 'approved'
-                """,
-                (trainer_id,),
-            )
-            connection.commit()
-            return cursor.rowcount == 1
-        finally:
-            connection.close()
+        # SQLite je kaskadno obrisao povezane redove. Ponovno povezivanje
+        # memorije ovde je jednostavnije i sigurnije od rucnog brisanja 14 lista.
+        self.data.load_all()
+        return True
+
+    @staticmethod
+    def _registration_sort_key(profile):
+        return profile.user.created_at, profile.user.id
+
+    @staticmethod
+    def _rating_sort_key(profile):
+        has_no_rating = profile.average_rating is None
+        average = profile.average_rating or 0
+        return (
+            has_no_rating,
+            -average,
+            -profile.rating_count,
+            profile.last_name.lower(),
+            profile.first_name.lower(),
+        )

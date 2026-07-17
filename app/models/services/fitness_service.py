@@ -93,7 +93,7 @@ class FitnessService:
         self, workout_id, exercise_id, client_id, completed
     ):
         workout = self._validate_client_workout_action(workout_id, client_id)
-        if workout["status"] != "assigned":
+        if workout.status != "assigned":
             raise ValueError("Zavrsen trening vise ne mozete menjati.")
         self.fitness_repository.set_workout_exercise_completed(
             workout_id, exercise_id, client_id, completed
@@ -231,12 +231,12 @@ class FitnessService:
         workout = self.fitness_repository.get_client_workout(workout_id, client_id)
         if workout is None:
             raise ValueError("Trening nije pronadjen.")
-        if workout["status"] == "missed":
+        if workout.status == "missed":
             raise ValueError("Rok za ovaj trening je istekao.")
-        if date.fromisoformat(workout["scheduled_date"]) < date.today():
+        if date.fromisoformat(workout.scheduled_date) < date.today():
             raise ValueError("Rok za ovaj trening je istekao.")
         if self.fitness_repository.get_active_membership_expiration(
-            workout["trainer_id"], client_id
+            workout.trainer.id, client_id
         ) is None:
             raise ValueError("Clanarina kod ovog trenera vise nije aktivna.")
         return workout

@@ -38,19 +38,19 @@ class ClientRatingsView:
             card.pack(fill="x", padx=6, pady=6)
             ctk.CTkLabel(
                 card,
-                text=f"Ocena: {rating['rating']} | Trener: {rating['trainer_name']}",
+                text=f"Ocena: {rating.rating} | Trener: {rating.trainer.full_name}",
                 font=ctk.CTkFont(weight="bold"),
             ).pack(anchor="w", padx=12, pady=(10, 3))
             ctk.CTkLabel(
                 card,
-                text=rating["comment"] or "Bez komentara",
+                text=rating.comment or "Bez komentara",
                 justify="left",
                 anchor="w",
                 wraplength=520,
             ).pack(fill="x", padx=12, pady=(0, 4))
             ctk.CTkLabel(
                 card,
-                text=rating["created_at"],
+                text=rating.created_at,
                 text_color=("gray40", "gray70"),
             ).pack(anchor="w", padx=12, pady=(0, 10))
 

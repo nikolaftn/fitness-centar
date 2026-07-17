@@ -1,19 +1,4 @@
-from dataclasses import dataclass
+from app.models.domain.fitness_entities import User
 
 
-@dataclass(frozen=True)
-class User:
-    """Podaci o prijavljenom korisniku bez lozinke."""
-
-    id: int
-    username: str
-    role: str
-    first_name: str
-    last_name: str
-    birth_date: str
-    registration_status: str
-
-    @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}"
-
+__all__ = ["User"]

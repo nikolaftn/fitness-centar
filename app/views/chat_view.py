@@ -66,17 +66,17 @@ class ChatView:
             widget.destroy()
 
         for message in messages:
-            own_message = message["sender_id"] == self.current_user_id
-            special_message = message["message_type"] != "text"
+            own_message = message.sender.id == self.current_user_id
+            special_message = message.message_type != "text"
             row = ctk.CTkFrame(self.messages_frame, fg_color="transparent")
             row.pack(fill="x", padx=8, pady=5)
 
-            sender = "Vi" if own_message else message["sender_username"]
+            sender = "Vi" if own_message else message.sender.username
             if special_message:
                 sender = f"{sender} - poslata ocena"
             bubble = ctk.CTkLabel(
                 row,
-                text=f"{sender}\n{message['text']}\n{message['created_at']}",
+                text=f"{sender}\n{message.text}\n{message.created_at}",
                 justify="left",
                 anchor="w",
                 wraplength=410,

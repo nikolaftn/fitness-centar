@@ -17,10 +17,11 @@ from app.views.main_view import MainView
 class AppController:
     """Povezuje Tkinter prikaz sa Model slojem."""
 
-    def __init__(self):
-        self.user_repository = UserRepository()
-        self.trainer_repository = TrainerRepository()
-        self.fitness_repository = FitnessRepository()
+    def __init__(self, application_data):
+        self.application_data = application_data
+        self.user_repository = UserRepository(application_data)
+        self.trainer_repository = TrainerRepository(application_data)
+        self.fitness_repository = FitnessRepository(application_data)
         self.login_service = LoginService(self.user_repository)
         self.registration_service = RegistrationService(self.user_repository)
         self.admin_service = AdminService(
