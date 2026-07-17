@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -65,4 +67,3 @@ class Notification:
     message: str
     is_read: bool
     created_at: str
-
