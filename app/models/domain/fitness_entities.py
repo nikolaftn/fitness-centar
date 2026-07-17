@@ -27,8 +27,6 @@ class TrainerProfile:
     biography: str
     years_of_experience: int
     price_per_training: float
-    average_rating: float = None
-    rating_count: int = 0
 
     @property
     def user_id(self):
@@ -69,8 +67,6 @@ class TrainerClientRelation:
     weight_kg: float
     training_location: str
     health_conditions: str
-    active_until: str = None
-    missed_count: int = 0
 
     @property
     def trainer_id(self):
@@ -164,8 +160,6 @@ class Workout:
     name: str
     scheduled_date: str
     status: str
-    workout_rating: int = None
-    trainer_rating: int = None
 
     @property
     def trainer(self):
@@ -194,8 +188,6 @@ class WorkoutExercise:
     duration_minutes: int
     completed: bool
     completed_at: str
-    rating: int = None
-    comment: str = None
 
     @property
     def workout_id(self):

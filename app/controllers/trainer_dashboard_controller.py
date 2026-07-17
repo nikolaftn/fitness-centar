@@ -87,7 +87,7 @@ class TrainerDashboardController:
         if client is None:
             self.view.show_error("Izaberite aktivnog klijenta.")
             return
-        if client.missed_count >= 2:
+        if self.view.get_selected_client_missed_count() >= 2:
             self.view.show_error(
                 "Klijent je u ovoj clanarini propustio dva treninga. "
                 "Novi trening moze dobiti tek posle sledece mesecne uplate."

@@ -30,7 +30,7 @@ class FitnessRepository:
 
     # ------------------------- TRENERI I ODNOSI -------------------------
     def list_available_trainers(self, client_id):
-        profiles = []
+        trainers = []
         for profile in self.data.trainer_profiles.values():
             trainer = profile.user
             if trainer.registration_status != "approved":
@@ -42,10 +42,10 @@ class FitnessRepository:
             if relation and relation.status in {"pending", "accepted"}:
                 continue
 
-            self._set_trainer_rating_summary(profile)
-            profiles.append(profile)
+            average_rating, rating_count = self._trainer_rating_summary(profile)
+            trainers.append((profile, average_rating, rating_count))
 
-        return sorted(profiles, key=self._trainer_sort_key)
+        return sorted(trainers, key=self._trainer_sort_key)
 
     def get_trainer_profile(self, trainer_id):
         return self.data.trainer_profiles.get(trainer_id)
@@ -252,7 +252,7 @@ class FitnessRepository:
         return True
 
     def list_accepted_clients(self, trainer_id):
-        relations = []
+        clients = []
         for relation in self.data.trainer_client_relations.values():
             if relation.trainer.id != trainer_id:
                 continue
@@ -262,11 +262,10 @@ class FitnessRepository:
             payment = self._active_payment(relation)
             if payment is None:
                 continue
-            relation.active_until = payment.valid_until
-            relation.missed_count = self._count_missed(relation, payment)
-            relations.append(relation)
+            missed_count = self._count_missed(relation, payment)
+            clients.append((relation, payment.valid_until, missed_count))
 
-        return sorted(relations, key=self._relation_client_name)
+        return sorted(clients, key=self._accepted_client_sort_key)
 
     # ------------------------------ VEZBE ------------------------------
     def list_exercises(self, trainer_id):
@@ -567,15 +566,8 @@ class FitnessRepository:
                 continue
 
             workout_rating = self.data.workout_ratings.get((workout.id, client_id))
-            trainer_rating = self.data.trainer_ratings.get((client_id, trainer_id))
-            workout.workout_rating = None
-            workout.trainer_rating = None
-            if workout_rating:
-                workout.workout_rating = workout_rating.rating
-            if trainer_rating:
-                workout.trainer_rating = trainer_rating.rating
-            workouts.append(workout)
-        return sorted(workouts, key=self._object_id, reverse=True)
+            workouts.append((workout, workout_rating))
+        return sorted(workouts, key=self._workout_with_rating_sort_key, reverse=True)
 
     def list_workout_exercises(self, workout_id, client_id):
         items = []
@@ -585,13 +577,8 @@ class FitnessRepository:
             rating = self.data.exercise_ratings.get(
                 (workout_id, item.exercise.id, client_id)
             )
-            item.rating = None
-            item.comment = None
-            if rating:
-                item.rating = rating.rating
-                item.comment = rating.comment
-            items.append(item)
-        return sorted(items, key=self._exercise_order)
+            items.append((item, rating))
+        return sorted(items, key=self._exercise_with_rating_sort_key)
 
     def get_client_workout(self, workout_id, client_id):
         workout = self.data.workouts.get(workout_id)
@@ -699,7 +686,6 @@ class FitnessRepository:
                 created_at,
             )
         workout.status = "completed"
-        workout.workout_rating = rating_value
         self._save_rating_message_in_memory(
             message_id,
             workout.client,
@@ -815,8 +801,6 @@ class FitnessRepository:
                 comment or None,
                 created_at,
             )
-        item.rating = rating_value
-        item.comment = comment or None
         self._save_rating_message_in_memory(
             message_id,
             item.workout.client,
@@ -1126,15 +1110,16 @@ class FitnessRepository:
         return sorted(messages, key=self._message_sort_key)
 
     # ---------------------------- POMOCNO -------------------------------
-    def _set_trainer_rating_summary(self, profile):
+    def _trainer_rating_summary(self, profile):
         ratings = []
         for rating in self.data.trainer_ratings.values():
             if rating.trainer is profile.user:
                 ratings.append(rating.rating)
-        profile.rating_count = len(ratings)
-        profile.average_rating = None
-        if ratings:
-            profile.average_rating = round(sum(ratings) / len(ratings), 2)
+        rating_count = len(ratings)
+        average_rating = None
+        if rating_count > 0:
+            average_rating = round(sum(ratings) / rating_count, 2)
+        return average_rating, rating_count
 
     def _next_exercise_id(self, trainer_id):
         largest_id = 0
@@ -1146,15 +1131,32 @@ class FitnessRepository:
         return largest_id + 1
 
     @staticmethod
-    def _trainer_sort_key(profile):
-        has_no_rating = profile.average_rating is None
-        average = profile.average_rating or 0
+    def _trainer_sort_key(trainer_data):
+        profile, average_rating, rating_count = trainer_data
+        has_no_rating = average_rating is None
+        average = average_rating or 0
         return (
             has_no_rating,
             -average,
+            -rating_count,
             profile.last_name.lower(),
             profile.first_name.lower(),
         )
+
+    @staticmethod
+    def _accepted_client_sort_key(client_data):
+        relation, active_until, missed_count = client_data
+        return relation.client.full_name.lower()
+
+    @staticmethod
+    def _workout_with_rating_sort_key(workout_data):
+        workout, rating = workout_data
+        return workout.id
+
+    @staticmethod
+    def _exercise_with_rating_sort_key(exercise_data):
+        item, rating = exercise_data
+        return item.exercise_order
 
     def _active_payment(self, relation, check_relation=True):
         if relation is None:

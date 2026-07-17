@@ -39,7 +39,7 @@ class TrainerRepository:
         return True
 
     def list_trainers_by_average_rating(self):
-        profiles = []
+        trainers = []
         for profile in self.data.trainer_profiles.values():
             if profile.user.registration_status != "approved":
                 continue
@@ -49,13 +49,13 @@ class TrainerRepository:
                 if rating.trainer is profile.user:
                     ratings.append(rating.rating)
 
-            profile.rating_count = len(ratings)
-            profile.average_rating = None
-            if ratings:
-                profile.average_rating = round(sum(ratings) / len(ratings), 2)
-            profiles.append(profile)
+            rating_count = len(ratings)
+            average_rating = None
+            if rating_count > 0:
+                average_rating = round(sum(ratings) / rating_count, 2)
+            trainers.append((profile, average_rating, rating_count))
 
-        return sorted(profiles, key=self._rating_sort_key)
+        return sorted(trainers, key=self._rating_sort_key)
 
     def is_approved_trainer(self, trainer_id):
         trainer = self.data.users.get(trainer_id)
@@ -86,13 +86,14 @@ class TrainerRepository:
         return profile.user.created_at, profile.user.id
 
     @staticmethod
-    def _rating_sort_key(profile):
-        has_no_rating = profile.average_rating is None
-        average = profile.average_rating or 0
+    def _rating_sort_key(trainer_data):
+        profile, average_rating, rating_count = trainer_data
+        has_no_rating = average_rating is None
+        average = average_rating or 0
         return (
             has_no_rating,
             -average,
-            -profile.rating_count,
+            -rating_count,
             profile.last_name.lower(),
             profile.first_name.lower(),
         )

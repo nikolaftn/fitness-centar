@@ -152,12 +152,12 @@ class ClientDashboardView:
             entry.insert(0, value)
         return entry
 
-    @staticmethod
-    def _format_trainer(profile):
+    def _format_trainer(self, profile):
+        average_rating = self.trainer_average_ratings[profile.user.id]
         return (
             f"{profile.full_name}\n"
             f"Cena treninga: {profile.price_per_training:.2f} | "
-            f"Ocena: {profile.average_rating or 'nema'}"
+            f"Ocena: {average_rating or 'nema'}"
         )
 
     @staticmethod
@@ -169,9 +169,15 @@ class ClientDashboardView:
         return "Zahtev prihvacen - clanarina nije aktivna"
 
     def show_trainers(self, rows):
+        profiles = []
+        self.trainer_average_ratings = {}
+        for profile, average_rating, rating_count in rows:
+            profiles.append(profile)
+            self.trainer_average_ratings[profile.user.id] = average_rating
+
         self.trainer_details.configure(text="Izaberite trenera.")
         self.trainers_list.set_rows(
-            rows,
+            profiles,
             "user_id",
             self._format_trainer,
             self._show_trainer_details,

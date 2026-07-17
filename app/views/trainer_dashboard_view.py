@@ -179,12 +179,12 @@ class TrainerDashboardView:
     def _format_request(relation):
         return f"{relation.client.full_name} ({relation.client.username})"
 
-    @staticmethod
-    def _format_client(relation):
+    def _format_client(self, relation):
+        client_data = self.client_membership_data[relation.client.id]
         return (
             f"{relation.client.full_name} ({relation.client.username})\n"
-            f"Clanarina do: {relation.active_until} | "
-            f"Propusteno: {relation.missed_count}"
+            f"Clanarina do: {client_data['active_until']} | "
+            f"Propusteno: {client_data['missed_count']}"
         )
 
     def show_requests(self, rows):
@@ -212,9 +212,18 @@ class TrainerDashboardView:
         )
 
     def show_clients(self, rows):
+        relations = []
+        self.client_membership_data = {}
+        for relation, active_until, missed_count in rows:
+            relations.append(relation)
+            self.client_membership_data[relation.client.id] = {
+                "active_until": active_until,
+                "missed_count": missed_count,
+            }
+
         self.client_details.configure(text="Izaberite klijenta.")
         self.clients_list.set_rows(
-            rows,
+            relations,
             "client_id",
             self._format_client,
             self._show_client_details,
@@ -268,6 +277,12 @@ class TrainerDashboardView:
 
     def get_selected_client(self):
         return self.clients_list.selected_row
+
+    def get_selected_client_missed_count(self):
+        relation = self.get_selected_client()
+        if relation is None:
+            return 0
+        return self.client_membership_data[relation.client.id]["missed_count"]
 
     def show_error(self, message):
         self.message_label.configure(text=message, text_color="firebrick")

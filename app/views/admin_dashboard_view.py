@@ -189,7 +189,7 @@ class AdminDashboardView:
     def show_sorted_trainers(self, trainers):
         for item in self.ratings_table.get_children():
             self.ratings_table.delete(item)
-        for trainer in trainers:
+        for trainer, average_rating, rating_count in trainers:
             self.ratings_table.insert(
                 "",
                 "end",
@@ -198,8 +198,8 @@ class AdminDashboardView:
                     trainer.full_name,
                     trainer.username,
                     trainer.education or "",
-                    trainer.average_rating or "Nema",
-                    trainer.rating_count,
+                    average_rating or "Nema",
+                    rating_count,
                 ),
             )
 

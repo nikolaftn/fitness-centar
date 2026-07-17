@@ -68,15 +68,22 @@ class ClientWorkoutsView:
         self.message_label = ctk.CTkLabel(self.window, text="", anchor="w")
         self.message_label.pack(fill="x", padx=22, pady=(0, 12))
 
-    @staticmethod
-    def _format_workout(workout):
+    def _format_workout(self, workout):
+        rating = self.workout_ratings.get(workout.id)
+        rating_value = rating.rating if rating else None
         return (
             f"{workout.name}\n"
             f"Rok: {workout.scheduled_date} | Status: {workout.status} | "
-            f"Ocena: {workout.workout_rating or '-'}"
+            f"Ocena: {rating_value or '-'}"
         )
 
-    def show_workouts(self, workouts):
+    def show_workouts(self, rows):
+        workouts = []
+        self.workout_ratings = {}
+        for workout, rating in rows:
+            workouts.append(workout)
+            self.workout_ratings[workout.id] = rating
+
         self.workouts_list.set_rows(
             workouts,
             "id",
@@ -91,9 +98,15 @@ class ClientWorkoutsView:
         )
         self.controller.load_workout_exercises(workout)
 
-    def show_exercises(self, exercises):
+    def show_exercises(self, rows):
         for widget in self.exercises_frame.winfo_children():
             widget.destroy()
+
+        exercises = []
+        exercise_ratings = {}
+        for exercise, rating in rows:
+            exercises.append(exercise)
+            exercise_ratings[exercise.id] = rating
 
         workout = self.selected_workout
         deadline_valid = bool(
@@ -109,6 +122,8 @@ class ClientWorkoutsView:
         )
 
         for exercise in exercises:
+            rating = exercise_ratings[exercise.id]
+            rating_value = rating.rating if rating else None
             card = ctk.CTkFrame(self.exercises_frame)
             card.pack(fill="x", padx=5, pady=5)
             completed = ctk.BooleanVar(value=exercise.completed)
@@ -132,7 +147,7 @@ class ClientWorkoutsView:
 
             rating_button = ctk.CTkButton(
                 card,
-                text=f"Oceni ({exercise.rating or '-'})",
+                text=f"Oceni ({rating_value or '-'})",
                 width=110,
                 command=lambda current=exercise: self.controller.open_exercise_rating(
                     current
