@@ -11,19 +11,19 @@ class AdminDashboardController:
         self.refresh()
 
     def refresh(self):
-        registrations, trainers = self.admin_service.get_dashboard_data()
+        registrations, trainers, center_rents = (
+            self.admin_service.get_dashboard_data()
+        )
         self.view.show_registrations(registrations)
         self.view.show_sorted_trainers(trainers)
+        self.view.show_center_rents(center_rents)
 
     def delete_selected_trainer(self):
         trainer_id = self.view.get_selected_existing_trainer_id()
-        trainer_name = self.view.get_selected_existing_trainer_name()
         if trainer_id is None:
             self.view.show_error(
                 "Prvo izaberite odobrenog trenera iz tabele sa ocenama."
             )
-            return
-        if not self.view.confirm_trainer_deletion(trainer_name):
             return
         try:
             self.admin_service.delete_trainer(trainer_id)

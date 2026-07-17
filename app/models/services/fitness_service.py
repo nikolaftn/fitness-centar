@@ -28,6 +28,7 @@ class FitnessService:
         return {
             "requests": self.fitness_repository.list_trainer_requests(trainer_id),
             "clients": self.fitness_repository.list_accepted_clients(trainer_id),
+            "center_rent": self.fitness_repository.get_center_rent_status(trainer_id),
         }
 
     def get_trainer_profile(self, trainer_id):
@@ -101,6 +102,9 @@ class FitnessService:
     def pay_membership(self, trainer_id, client_id):
         self.fitness_repository.sync_membership_statuses()
         self.fitness_repository.pay_monthly_subscription(trainer_id, client_id)
+
+    def pay_center_rent(self, trainer_id):
+        self.fitness_repository.pay_center_rent(trainer_id)
 
     def get_unread_notifications(self, client_id):
         self.fitness_repository.sync_membership_statuses()

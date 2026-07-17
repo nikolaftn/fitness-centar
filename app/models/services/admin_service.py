@@ -7,6 +7,7 @@ class AdminService:
         return (
             self.trainer_repository.list_pending_registrations(),
             self.trainer_repository.list_trainers_by_average_rating(),
+            self.fitness_repository.list_center_rent_statuses(),
         )
 
     def decide_trainer_registration(self, trainer_id, decision):

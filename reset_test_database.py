@@ -160,6 +160,17 @@ def create_schema(connection):
                 ON DELETE CASCADE
         );
 
+        CREATE TABLE trainer_center_payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            trainer_id INTEGER NOT NULL,
+            amount REAL NOT NULL CHECK (amount >= 0),
+            status TEXT NOT NULL DEFAULT 'paid'
+                CHECK (status IN ('paid', 'pending', 'failed')),
+            paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            valid_until TEXT NOT NULL,
+            FOREIGN KEY (trainer_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
         CREATE TABLE notifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_id INTEGER NOT NULL,
@@ -345,6 +356,16 @@ def insert_test_data(connection):
 
         INSERT INTO payments (trainer_id, client_id, amount, status, paid_at, valid_until)
         VALUES (3, 7, 6000, 'paid', '2026-06-01 10:00:00', '2026-07-01 10:00:00');
+
+        INSERT INTO trainer_center_payments
+            (trainer_id, amount, status, paid_at, valid_until)
+        VALUES
+            (2, 30000, 'paid', datetime('now', '-5 days'), datetime('now', '+25 days'));
+
+        INSERT INTO trainer_center_payments
+            (trainer_id, amount, status, paid_at, valid_until)
+        VALUES
+            (3, 30000, 'paid', datetime('now', '-1 month', '-1 day'), datetime('now', '-1 day'));
 
         INSERT INTO messages (sender_id, receiver_id, text)
         VALUES (6, 2, 'Zdravo, mozes li da mi objasnis pravilnu tehniku cucnja?');

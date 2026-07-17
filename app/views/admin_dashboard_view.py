@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
 
 class AdminDashboardView:
@@ -9,8 +9,8 @@ class AdminDashboardView:
         self.controller = controller
         self.window = tk.Toplevel(parent)
         self.window.title("Administrator")
-        self.window.geometry("1000x700")
-        self.window.minsize(850, 580)
+        self.window.geometry("1100x820")
+        self.window.minsize(900, 700)
 
         header = tk.Frame(self.window, padx=24, pady=18)
         header.pack(fill="x")
@@ -89,6 +89,58 @@ class AdminDashboardView:
         ratings_scrollbar.pack(side="right", fill="y")
         self.ratings_table.configure(yscrollcommand=ratings_scrollbar.set)
 
+        tk.Label(
+            self.window,
+            text="Mesecni zakup fitnes centra",
+            font=("Arial", 12, "bold"),
+            padx=24,
+            anchor="w",
+        ).pack(fill="x", pady=(14, 4))
+        rents_frame = tk.Frame(self.window, padx=24)
+        rents_frame.pack(fill="both", expand=True)
+        rent_columns = (
+            "name",
+            "username",
+            "amount",
+            "paid_at",
+            "valid_until",
+            "status",
+        )
+        self.rents_table = ttk.Treeview(
+            rents_frame,
+            columns=rent_columns,
+            show="headings",
+            height=5,
+        )
+        rent_headings = {
+            "name": "Trener",
+            "username": "Korisnicko ime",
+            "amount": "Iznos",
+            "paid_at": "Datum uplate",
+            "valid_until": "Vazi do",
+            "status": "Status",
+        }
+        rent_widths = {
+            "name": 170,
+            "username": 130,
+            "amount": 100,
+            "paid_at": 160,
+            "valid_until": 160,
+            "status": 100,
+        }
+        for column in rent_columns:
+            self.rents_table.heading(column, text=rent_headings[column])
+            self.rents_table.column(column, width=rent_widths[column], anchor="w")
+        self.rents_table.tag_configure("active", foreground="darkgreen")
+        self.rents_table.tag_configure("expired", foreground="firebrick")
+        self.rents_table.tag_configure("unpaid", foreground="darkorange")
+        self.rents_table.pack(side="left", fill="both", expand=True)
+        rents_scrollbar = ttk.Scrollbar(
+            rents_frame, orient="vertical", command=self.rents_table.yview
+        )
+        rents_scrollbar.pack(side="right", fill="y")
+        self.rents_table.configure(yscrollcommand=rents_scrollbar.set)
+
         self.message_label = tk.Label(self.window, padx=24, anchor="w")
         self.message_label.pack(fill="x", pady=(10, 0))
 
@@ -151,6 +203,31 @@ class AdminDashboardView:
                 ),
             )
 
+    def show_center_rents(self, payments):
+        status_text = {
+            "active": "Placeno",
+            "expired": "Isteklo",
+            "unpaid": "Nije placeno",
+        }
+        for item in self.rents_table.get_children():
+            self.rents_table.delete(item)
+        for payment in payments:
+            status = payment["rent_status"]
+            self.rents_table.insert(
+                "",
+                "end",
+                iid=str(payment["id"]),
+                values=(
+                    f"{payment['first_name']} {payment['last_name']}",
+                    payment["username"],
+                    f"{payment['amount']:.2f}" if payment["amount"] else "-",
+                    payment["paid_at"] or "-",
+                    payment["valid_until"] or "-",
+                    status_text[status],
+                ),
+                tags=(status,),
+            )
+
     def get_selected_trainer_id(self):
         selection = self.table.selection()
         return int(selection[0]) if selection else None
@@ -164,13 +241,6 @@ class AdminDashboardView:
         if not selection:
             return None
         return self.ratings_table.item(selection[0], "values")[0]
-
-    def confirm_trainer_deletion(self, trainer_name):
-        return messagebox.askyesno(
-            "Uklanjanje trenera",
-            f"Da li sigurno zelite da uklonite trenera {trainer_name}?",
-            parent=self.window,
-        )
 
     def show_error(self, message):
         self.message_label.config(text=message, fg="firebrick")

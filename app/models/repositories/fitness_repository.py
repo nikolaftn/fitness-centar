@@ -11,6 +11,8 @@ from app.models.domain.fitness_entities import (
 class FitnessRepository:
     """SQL operacije za kompletan tok klijenta i trenera."""
 
+    CENTER_RENT_AMOUNT = 30000.0
+
     def __init__(self, connection_factory=get_connection):
         self.connection_factory = connection_factory
 
@@ -804,6 +806,97 @@ class FitnessRepository:
                 (trainer_id, client_id, trainer_id, client_id),
             )
             connection.commit()
+        finally:
+            connection.close()
+
+    def get_center_rent_status(self, trainer_id):
+        connection = self.connection_factory()
+        try:
+            payment = connection.execute(
+                """
+                SELECT amount, paid_at, valid_until,
+                       CASE
+                           WHEN paid_at <= CURRENT_TIMESTAMP
+                            AND valid_until > CURRENT_TIMESTAMP THEN 'active'
+                           ELSE 'expired'
+                       END AS rent_status
+                FROM trainer_center_payments
+                WHERE trainer_id = ? AND status = 'paid'
+                ORDER BY valid_until DESC
+                LIMIT 1
+                """,
+                (trainer_id,),
+            ).fetchone()
+            if payment:
+                return dict(payment)
+            return {
+                "amount": self.CENTER_RENT_AMOUNT,
+                "paid_at": None,
+                "valid_until": None,
+                "rent_status": "unpaid",
+            }
+        finally:
+            connection.close()
+
+    def pay_center_rent(self, trainer_id):
+        connection = self.connection_factory()
+        try:
+            active_payment = connection.execute(
+                """
+                SELECT valid_until
+                FROM trainer_center_payments
+                WHERE trainer_id = ? AND status = 'paid'
+                  AND paid_at <= CURRENT_TIMESTAMP
+                  AND valid_until > CURRENT_TIMESTAMP
+                ORDER BY valid_until DESC
+                LIMIT 1
+                """,
+                (trainer_id,),
+            ).fetchone()
+            if active_payment:
+                raise ValueError(
+                    f"Zakup centra vec vazi do {active_payment['valid_until']}."
+                )
+            connection.execute(
+                """
+                INSERT INTO trainer_center_payments(
+                    trainer_id, amount, status, paid_at, valid_until
+                ) VALUES (?, ?, 'paid', CURRENT_TIMESTAMP,
+                          datetime(CURRENT_TIMESTAMP, '+1 month'))
+                """,
+                (trainer_id, self.CENTER_RENT_AMOUNT),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+    def list_center_rent_statuses(self):
+        connection = self.connection_factory()
+        try:
+            return connection.execute(
+                """
+                SELECT u.id, u.username, u.first_name, u.last_name,
+                       COALESCE(p.amount, 30000.0) AS amount,
+                       p.paid_at, p.valid_until,
+                       CASE
+                           WHEN p.id IS NULL THEN 'unpaid'
+                           WHEN p.paid_at <= CURRENT_TIMESTAMP
+                            AND p.valid_until > CURRENT_TIMESTAMP THEN 'active'
+                           ELSE 'expired'
+                       END AS rent_status
+                FROM users u
+                LEFT JOIN trainer_center_payments p ON p.id = (
+                    SELECT p2.id
+                    FROM trainer_center_payments p2
+                    WHERE p2.trainer_id = u.id AND p2.status = 'paid'
+                    ORDER BY p2.valid_until DESC
+                    LIMIT 1
+                )
+                WHERE u.role = 'trainer'
+                  AND u.registration_status = 'approved'
+                ORDER BY u.last_name, u.first_name
+                """
+            ).fetchall()
         finally:
             connection.close()
 

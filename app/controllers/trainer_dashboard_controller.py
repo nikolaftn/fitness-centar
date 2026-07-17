@@ -28,6 +28,16 @@ class TrainerDashboardController:
         data = self.fitness_service.get_trainer_dashboard_data(self.user.id)
         self.view.show_requests(data["requests"])
         self.view.show_clients(data["clients"])
+        self.view.show_center_rent(data["center_rent"])
+
+    def pay_center_rent(self):
+        try:
+            self.fitness_service.pay_center_rent(self.user.id)
+        except ValueError as error:
+            self.view.show_error(str(error))
+            return
+        self.refresh()
+        self.view.show_info("Mesecni zakup fitnes centra je placen.")
 
     def accept_selected_request(self):
         self._decide_request("accepted")

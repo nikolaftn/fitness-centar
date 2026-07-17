@@ -13,6 +13,7 @@ class TrainerDashboardView:
         self.window.grab_set()
 
         self._build_header(user)
+        self._build_center_rent_panel()
         self._build_content()
 
         self.message_label = ctk.CTkLabel(self.window, text="", anchor="w")
@@ -57,6 +58,26 @@ class TrainerDashboardView:
             width=110,
             command=self.controller.open_profile,
         ).pack(side="right", padx=(8, 0))
+
+    def _build_center_rent_panel(self):
+        panel = ctk.CTkFrame(self.window)
+        panel.pack(fill="x", padx=24, pady=(0, 4))
+
+        self.center_rent_label = ctk.CTkLabel(
+            panel,
+            text="Provera zakupa fitnes centra...",
+            anchor="w",
+        )
+        self.center_rent_label.pack(
+            side="left", fill="x", expand=True, padx=14, pady=10
+        )
+
+        self.center_rent_button = ctk.CTkButton(
+            panel,
+            text="Plati mesecni zakup",
+            command=self.controller.pay_center_rent,
+        )
+        self.center_rent_button.pack(side="right", padx=14, pady=10)
 
     def _build_content(self):
         content = ctk.CTkFrame(self.window, fg_color="transparent")
@@ -198,6 +219,37 @@ class TrainerDashboardView:
             self._format_client,
             self._show_client_details,
         )
+
+    def show_center_rent(self, payment):
+        amount = payment["amount"] or 0
+        if payment["rent_status"] == "active":
+            self.center_rent_label.configure(
+                text=(
+                    f"Zakup fitnes centra je placen do {payment['valid_until']} | "
+                    f"Iznos: {amount:.2f}"
+                ),
+                text_color="darkgreen",
+            )
+            self.center_rent_button.configure(text="Zakup je placen", state="disabled")
+        elif payment["rent_status"] == "expired":
+            self.center_rent_label.configure(
+                text=(
+                    f"Zakup fitnes centra je istekao {payment['valid_until']} | "
+                    f"Mesecni iznos: {amount:.2f}"
+                ),
+                text_color="firebrick",
+            )
+            self.center_rent_button.configure(
+                text=f"Plati mesecni zakup {amount:.2f}", state="normal"
+            )
+        else:
+            self.center_rent_label.configure(
+                text=f"Zakup fitnes centra nije placen | Mesecni iznos: {amount:.2f}",
+                text_color="firebrick",
+            )
+            self.center_rent_button.configure(
+                text=f"Plati mesecni zakup {amount:.2f}", state="normal"
+            )
 
     def _show_client_details(self, row):
         self.client_details.configure(
