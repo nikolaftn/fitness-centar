@@ -34,8 +34,8 @@ class FitnessService:
     def get_trainer_profile(self, trainer_id):
         return self.fitness_repository.get_trainer_profile(trainer_id)
 
-    def get_exercises(self):
-        return self.fitness_repository.list_exercises()
+    def get_exercises(self, trainer_id):
+        return self.fitness_repository.list_exercises(trainer_id)
 
     def get_equipment(self):
         return self.fitness_repository.list_equipment()
@@ -146,7 +146,7 @@ class FitnessService:
             trainer_id, client_id, status
         )
 
-    def save_exercise(self, data):
+    def save_exercise(self, trainer_id, data):
         if not data["name"]:
             raise ValueError("Naziv vezbe je obavezan.")
         try:
@@ -156,12 +156,16 @@ class FitnessService:
         if duration is not None and duration <= 0:
             raise ValueError("Trajanje mora biti pozitivan ceo broj.")
         self.fitness_repository.save_exercise(
-            data["id"], data["name"], data["description"], duration,
+            trainer_id,
+            data["id"],
+            data["name"],
+            data["description"],
+            duration,
             data["equipment_id"],
         )
 
-    def delete_exercise(self, exercise_id):
-        self.fitness_repository.delete_exercise(exercise_id)
+    def delete_exercise(self, trainer_id, exercise_id):
+        self.fitness_repository.delete_exercise(trainer_id, exercise_id)
 
     def save_equipment(self, data):
         if not data["name"]:
@@ -175,15 +179,50 @@ class FitnessService:
     def delete_equipment(self, equipment_id):
         self.fitness_repository.delete_equipment(equipment_id)
 
-    def create_workout(self, trainer_id, client_id, name, exercise_ids, scheduled_date):
+    def create_workout(
+        self,
+        trainer_id,
+        client_id,
+        name,
+        exercise_assignments,
+        scheduled_date,
+    ):
         if not name:
             raise ValueError("Naziv treninga je obavezan.")
-        if not exercise_ids:
+        if not exercise_assignments:
             raise ValueError("Izaberite bar jednu vezbu.")
+
+        parsed_assignments = []
+        for assignment in exercise_assignments:
+            try:
+                sets = int(assignment["sets"])
+                repetitions = int(assignment["repetitions"])
+                duration_minutes = int(assignment["duration_minutes"])
+            except ValueError as error:
+                raise ValueError(
+                    "Serije, ponavljanja i trajanje moraju biti celi brojevi."
+                ) from error
+            if sets <= 0 or repetitions <= 0 or duration_minutes <= 0:
+                raise ValueError(
+                    "Serije, ponavljanja i trajanje moraju biti veci od nule."
+                )
+            parsed_assignments.append(
+                {
+                    "exercise_id": assignment["exercise_id"],
+                    "sets": sets,
+                    "repetitions": repetitions,
+                    "duration_minutes": duration_minutes,
+                }
+            )
+
         deadline = self._validate_workout_deadline(scheduled_date)
         self._validate_workout_assignment(trainer_id, client_id, deadline)
         self.fitness_repository.create_workout(
-            trainer_id, client_id, name, exercise_ids, scheduled_date
+            trainer_id,
+            client_id,
+            name,
+            parsed_assignments,
+            scheduled_date,
         )
 
     @staticmethod

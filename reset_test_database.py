@@ -84,11 +84,15 @@ def create_schema(connection):
         );
 
         CREATE TABLE exercises (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
+            trainer_id INTEGER NOT NULL,
+            id INTEGER NOT NULL,
+            name TEXT NOT NULL,
             description TEXT,
             duration_minutes INTEGER CHECK (duration_minutes > 0),
             equipment_id INTEGER,
+            PRIMARY KEY (trainer_id, id),
+            UNIQUE (trainer_id, name),
+            FOREIGN KEY (trainer_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE SET NULL
         );
 
@@ -100,6 +104,7 @@ def create_schema(connection):
             scheduled_date TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'assigned'
                 CHECK (status IN ('assigned', 'completed', 'missed')),
+            UNIQUE (id, trainer_id),
             FOREIGN KEY (trainer_id, client_id)
                 REFERENCES trainer_client_relations(trainer_id, client_id)
                 ON DELETE CASCADE
@@ -107,18 +112,21 @@ def create_schema(connection):
 
         CREATE TABLE workout_exercises (
             workout_id INTEGER NOT NULL,
+            trainer_id INTEGER NOT NULL,
             exercise_id INTEGER NOT NULL,
             exercise_order INTEGER NOT NULL CHECK (exercise_order >= 1),
-            sets INTEGER CHECK (sets > 0),
-            repetitions INTEGER CHECK (repetitions > 0),
-            duration_minutes INTEGER CHECK (duration_minutes > 0),
+            sets INTEGER NOT NULL CHECK (sets > 0),
+            repetitions INTEGER NOT NULL CHECK (repetitions > 0),
+            duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0),
             completed INTEGER NOT NULL DEFAULT 0
                 CHECK (completed IN (0, 1)),
             completed_at TEXT,
             PRIMARY KEY (workout_id, exercise_id),
             UNIQUE (workout_id, exercise_order),
-            FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
-            FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+            FOREIGN KEY (workout_id, trainer_id)
+                REFERENCES workouts(id, trainer_id) ON DELETE CASCADE,
+            FOREIGN KEY (trainer_id, exercise_id)
+                REFERENCES exercises(trainer_id, id) ON DELETE CASCADE
         );
 
         CREATE TABLE workout_ratings (
@@ -264,20 +272,26 @@ def insert_test_data(connection):
         INSERT INTO equipment (name, category, description)
         VALUES ('Elasticna traka', 'prop', 'Rekvizit za aktivaciju i mobilnost.');
 
-        INSERT INTO exercises (name, description, duration_minutes, equipment_id)
-        VALUES ('Cucanj', 'Osnovna vezba za noge i gluteus.', 10, 6);
+        INSERT INTO exercises (trainer_id, id, name, description, duration_minutes, equipment_id)
+        VALUES (2, 1, 'Cucanj', 'Osnovna vezba za noge i gluteus.', 10, 6);
 
-        INSERT INTO exercises (name, description, duration_minutes, equipment_id)
-        VALUES ('Sklek', 'Vezba za grudi, ramena i triceps.', 8, 5);
+        INSERT INTO exercises (trainer_id, id, name, description, duration_minutes, equipment_id)
+        VALUES (2, 2, 'Sklek', 'Vezba za grudi, ramena i triceps.', 8, 5);
 
-        INSERT INTO exercises (name, description, duration_minutes, equipment_id)
-        VALUES ('Plank', 'Staticka vezba za stabilizaciju trupa.', 5, 5);
+        INSERT INTO exercises (trainer_id, id, name, description, duration_minutes, equipment_id)
+        VALUES (2, 3, 'Plank', 'Staticka vezba za stabilizaciju trupa.', 5, 5);
 
-        INSERT INTO exercises (name, description, duration_minutes, equipment_id)
-        VALUES ('Iskorak', 'Jednonozna vezba za noge i ravnotezu.', 10, 4);
+        INSERT INTO exercises (trainer_id, id, name, description, duration_minutes, equipment_id)
+        VALUES (2, 4, 'Iskorak', 'Jednonozna vezba za noge i ravnotezu.', 10, 4);
 
-        INSERT INTO exercises (name, description, duration_minutes, equipment_id)
-        VALUES ('Veslanje bucicama', 'Vezba za ledja uz bucice.', 12, 4);
+        INSERT INTO exercises (trainer_id, id, name, description, duration_minutes, equipment_id)
+        VALUES (2, 5, 'Veslanje bucicama', 'Vezba za ledja uz bucice.', 12, 4);
+
+        INSERT INTO exercises (trainer_id, id, name, description, duration_minutes, equipment_id)
+        VALUES (3, 1, 'Plank', 'Stabilizacija trupa za program mobilnosti.', 5, 5);
+
+        INSERT INTO exercises (trainer_id, id, name, description, duration_minutes, equipment_id)
+        VALUES (3, 2, 'Jutarnja mobilnost', 'Lagana vezba mobilnosti celog tela.', 12, 5);
 
         INSERT INTO trainer_client_relations (trainer_id, client_id, monthly_price, expiration_date, is_paid, status, workouts_per_week, goals, height_cm, weight_kg, training_location, health_conditions)
         VALUES (2, 6, 24000.0, '2026-08-01 10:00:00', 1, 'accepted', 3, 'Povecanje snage i misicne mase', 182, 82, 'gym', 'Nema');
@@ -309,26 +323,26 @@ def insert_test_data(connection):
         INSERT INTO workouts (trainer_id, client_id, name, scheduled_date, status)
         VALUES (3, 9, 'Mobilnost 1', '2026-07-18', 'assigned');
 
-        INSERT INTO workout_exercises (workout_id, exercise_id, exercise_order, sets, repetitions, duration_minutes, completed, completed_at)
-        VALUES (1, 1, 1, 4, 10, NULL, 1, '2026-07-10 18:00:00');
+        INSERT INTO workout_exercises (workout_id, trainer_id, exercise_id, exercise_order, sets, repetitions, duration_minutes, completed, completed_at)
+        VALUES (1, 2, 1, 1, 4, 10, 10, 1, '2026-07-10 18:00:00');
 
-        INSERT INTO workout_exercises (workout_id, exercise_id, exercise_order, sets, repetitions, duration_minutes, completed, completed_at)
-        VALUES (1, 4, 2, 3, 12, NULL, 1, '2026-07-10 18:00:00');
+        INSERT INTO workout_exercises (workout_id, trainer_id, exercise_id, exercise_order, sets, repetitions, duration_minutes, completed, completed_at)
+        VALUES (1, 2, 4, 2, 3, 12, 10, 1, '2026-07-10 18:00:00');
 
-        INSERT INTO workout_exercises (workout_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
-        VALUES (2, 2, 1, 4, 12, NULL);
+        INSERT INTO workout_exercises (workout_id, trainer_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
+        VALUES (2, 2, 2, 1, 4, 12, 8);
 
-        INSERT INTO workout_exercises (workout_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
-        VALUES (2, 5, 2, 4, 10, NULL);
+        INSERT INTO workout_exercises (workout_id, trainer_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
+        VALUES (2, 2, 5, 2, 4, 10, 12);
 
-        INSERT INTO workout_exercises (workout_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
-        VALUES (3, 3, 1, 3, NULL, 2);
+        INSERT INTO workout_exercises (workout_id, trainer_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
+        VALUES (3, 2, 3, 1, 3, 1, 2);
 
-        INSERT INTO workout_exercises (workout_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
-        VALUES (4, 1, 1, 3, 15, NULL);
+        INSERT INTO workout_exercises (workout_id, trainer_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
+        VALUES (4, 2, 1, 1, 3, 15, 10);
 
-        INSERT INTO workout_exercises (workout_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
-        VALUES (5, 3, 1, 3, NULL, 2);
+        INSERT INTO workout_exercises (workout_id, trainer_id, exercise_id, exercise_order, sets, repetitions, duration_minutes)
+        VALUES (5, 3, 1, 1, 3, 1, 2);
 
         INSERT INTO workout_ratings (workout_id, client_id, rating, comment)
         VALUES (1, 6, 5, 'Odlican trening, intenzitet je bio taman.');

@@ -149,17 +149,21 @@ class ApplicationData:
             self.equipment[item.id] = item
 
     def _load_exercises(self, connection):
-        rows = connection.execute("SELECT * FROM exercises ORDER BY id").fetchall()
+        rows = connection.execute(
+            "SELECT * FROM exercises ORDER BY trainer_id, id"
+        ).fetchall()
         for row in rows:
             equipment = self.equipment.get(row["equipment_id"])
             exercise = Exercise(
+                self.users[row["trainer_id"]],
                 row["id"],
                 row["name"],
                 row["description"],
                 row["duration_minutes"],
                 equipment,
             )
-            self.exercises[exercise.id] = exercise
+            key = (exercise.trainer.id, exercise.id)
+            self.exercises[key] = exercise
 
     def _load_workouts(self, connection):
         rows = connection.execute("SELECT * FROM workouts ORDER BY id").fetchall()
@@ -179,7 +183,7 @@ class ApplicationData:
         for row in rows:
             item = WorkoutExercise(
                 self.workouts[row["workout_id"]],
-                self.exercises[row["exercise_id"]],
+                self.exercises[(row["trainer_id"], row["exercise_id"])],
                 row["exercise_order"],
                 row["sets"],
                 row["repetitions"],

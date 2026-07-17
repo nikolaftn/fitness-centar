@@ -116,8 +116,10 @@ class ClientWorkoutsView:
                 card,
                 text=(
                     f"{exercise.exercise_order}. {exercise.name}\n"
-                    f"{exercise.shown_duration_minutes or '-'} min | "
-                    f"oprema: {exercise.equipment_name or 'bez opreme'}"
+                    f"Serije: {exercise.sets} | "
+                    f"Ponavljanja: {exercise.repetitions} | "
+                    f"Trajanje: {exercise.duration_minutes} min\n"
+                    f"Oprema: {exercise.equipment_name or 'bez opreme'}"
                 ),
                 variable=completed,
                 command=lambda exercise_id=exercise.id, variable=completed: (

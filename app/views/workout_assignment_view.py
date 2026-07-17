@@ -5,11 +5,12 @@ class WorkoutAssignmentView:
     def __init__(self, parent, controller, client_name):
         self.controller = controller
         self.exercise_variables = {}
+        self.exercise_entries = {}
 
         self.window = ctk.CTkToplevel(parent)
         self.window.title("Dodela treninga")
-        self.window.geometry("700x650")
-        self.window.minsize(580, 520)
+        self.window.geometry("820x700")
+        self.window.minsize(700, 580)
         self.window.transient(parent)
         self.window.grab_set()
         self.window.protocol("WM_DELETE_WINDOW", self.controller.close_workout_assignment)
@@ -59,28 +60,71 @@ class WorkoutAssignmentView:
         for widget in self.exercises_frame.winfo_children():
             widget.destroy()
         self.exercise_variables.clear()
+        self.exercise_entries.clear()
 
         for exercise in exercises:
+            card = ctk.CTkFrame(self.exercises_frame)
+            card.pack(fill="x", padx=6, pady=6)
+
             selected = ctk.BooleanVar(value=False)
             self.exercise_variables[exercise.id] = selected
             ctk.CTkCheckBox(
-                self.exercises_frame,
+                card,
                 text=(
                     f"{exercise.name} | {exercise.duration_minutes or '-'} min | "
                     f"oprema: {exercise.equipment_name or 'bez opreme'}"
                 ),
                 variable=selected,
-            ).pack(fill="x", padx=8, pady=5, anchor="w")
+            ).pack(fill="x", padx=10, pady=(10, 6), anchor="w")
+
+            values = ctk.CTkFrame(card, fg_color="transparent")
+            values.pack(fill="x", padx=8, pady=(0, 10))
+            values.grid_columnconfigure((0, 1, 2), weight=1)
+
+            sets_entry = self._exercise_number_entry(values, 0, "Broj serija", "3")
+            repetitions_entry = self._exercise_number_entry(
+                values, 1, "Ponavljanja", "10"
+            )
+            duration_entry = self._exercise_number_entry(
+                values,
+                2,
+                "Trajanje u minutima",
+                str(exercise.duration_minutes or 10),
+            )
+            self.exercise_entries[exercise.id] = {
+                "sets": sets_entry,
+                "repetitions": repetitions_entry,
+                "duration_minutes": duration_entry,
+            }
+
+    @staticmethod
+    def _exercise_number_entry(parent, column, label, default_value):
+        field = ctk.CTkFrame(parent, fg_color="transparent")
+        field.grid(row=0, column=column, sticky="ew", padx=4)
+        ctk.CTkLabel(field, text=label).pack(anchor="w")
+        entry = ctk.CTkEntry(field)
+        entry.pack(fill="x", pady=(2, 0))
+        entry.insert(0, default_value)
+        return entry
 
     def get_workout_data(self):
+        assignments = []
+        for exercise_id, selected in self.exercise_variables.items():
+            if not selected.get():
+                continue
+            entries = self.exercise_entries[exercise_id]
+            assignments.append(
+                {
+                    "exercise_id": exercise_id,
+                    "sets": entries["sets"].get().strip(),
+                    "repetitions": entries["repetitions"].get().strip(),
+                    "duration_minutes": entries["duration_minutes"].get().strip(),
+                }
+            )
         return {
             "name": self.name_entry.get().strip(),
             "deadline": self.deadline_entry.get().strip(),
-            "exercise_ids": [
-                exercise_id
-                for exercise_id, selected in self.exercise_variables.items()
-                if selected.get()
-            ],
+            "exercise_assignments": assignments,
         }
 
     def show_error(self, message):

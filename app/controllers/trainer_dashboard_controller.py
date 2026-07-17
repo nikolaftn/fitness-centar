@@ -101,7 +101,9 @@ class TrainerDashboardController:
             self,
             client.client.full_name,
         )
-        self.workout_view.show_exercises(self.fitness_service.get_exercises())
+        self.workout_view.show_exercises(
+            self.fitness_service.get_exercises(self.user.id)
+        )
 
     def submit_workout(self):
         data = self.workout_view.get_workout_data()
@@ -110,7 +112,7 @@ class TrainerDashboardController:
                 self.user.id,
                 self.workout_client.client.id,
                 data["name"],
-                data["exercise_ids"],
+                data["exercise_assignments"],
                 data["deadline"],
             )
         except ValueError as error:
@@ -188,11 +190,14 @@ class TrainerDashboardController:
 
     def _refresh_exercise_management(self):
         self.exercise_view.show_equipment(self.fitness_service.get_equipment())
-        self.exercise_view.show_exercises(self.fitness_service.get_exercises())
+        self.exercise_view.show_exercises(
+            self.fitness_service.get_exercises(self.user.id)
+        )
 
     def save_exercise(self):
         try:
             self.fitness_service.save_exercise(
+                self.user.id,
                 self.exercise_view.get_exercise_data()
             )
         except ValueError as error:
@@ -207,7 +212,7 @@ class TrainerDashboardController:
         if exercise_id is None:
             self.exercise_view.show_error("Izaberite vezbu.")
             return
-        self.fitness_service.delete_exercise(exercise_id)
+        self.fitness_service.delete_exercise(self.user.id, exercise_id)
         self.exercise_view.clear_form()
         self._refresh_exercise_management()
         self.exercise_view.show_info("Vezba je obrisana.")

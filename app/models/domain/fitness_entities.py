@@ -133,11 +133,16 @@ class Equipment:
 
 @dataclass
 class Exercise:
+    trainer: User
     id: int
     name: str
     description: str
     duration_minutes: int
     equipment: Equipment
+
+    @property
+    def trainer_id(self):
+        return self.trainer.id
 
     @property
     def equipment_id(self):

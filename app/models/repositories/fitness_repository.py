@@ -269,82 +269,124 @@ class FitnessRepository:
         return sorted(relations, key=self._relation_client_name)
 
     # ------------------------------ VEZBE ------------------------------
-    def list_exercises(self):
-        return sorted(self.data.exercises.values(), key=self._object_name)
+    def list_exercises(self, trainer_id):
+        exercises = []
+        for exercise in self.data.exercises.values():
+            if exercise.trainer.id == trainer_id:
+                exercises.append(exercise)
+        return sorted(exercises, key=self._object_name)
 
     def save_exercise(
-        self, exercise_id, name, description, duration_minutes, equipment_id
+        self,
+        trainer_id,
+        exercise_id,
+        name,
+        description,
+        duration_minutes,
+        equipment_id,
     ):
+        trainer = self.data.users.get(trainer_id)
+        if trainer is None or trainer.role != "trainer":
+            raise ValueError("Trener nije pronadjen.")
+
         equipment = self.data.equipment.get(equipment_id)
+        exercise = None
+        if exercise_id is not None:
+            exercise = self.data.exercises.get((trainer_id, exercise_id))
+            if exercise is None:
+                raise ValueError("Vezba ovog trenera nije pronadjena.")
+        else:
+            exercise_id = self._next_exercise_id(trainer_id)
+
         connection = self.connection_factory()
         try:
-            if exercise_id:
+            if exercise is not None:
                 connection.execute(
                     """
                     UPDATE exercises
                     SET name = ?, description = ?, duration_minutes = ?, equipment_id = ?
-                    WHERE id = ?
+                    WHERE trainer_id = ? AND id = ?
                     """,
                     (
                         name,
                         description or None,
                         duration_minutes,
                         equipment_id,
+                        trainer_id,
                         exercise_id,
                     ),
                 )
             else:
-                cursor = connection.execute(
+                connection.execute(
                     """
                     INSERT INTO exercises (
-                        name, description, duration_minutes, equipment_id
-                    ) VALUES (?, ?, ?, ?)
+                        trainer_id, id, name, description,
+                        duration_minutes, equipment_id
+                    ) VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (name, description or None, duration_minutes, equipment_id),
+                    (
+                        trainer_id,
+                        exercise_id,
+                        name,
+                        description or None,
+                        duration_minutes,
+                        equipment_id,
+                    ),
                 )
             connection.commit()
         finally:
             connection.close()
 
-        if exercise_id:
-            exercise = self.data.exercises[exercise_id]
+        if exercise is not None:
             exercise.name = name
             exercise.description = description or None
             exercise.duration_minutes = duration_minutes
             exercise.equipment = equipment
         else:
             exercise = Exercise(
-                cursor.lastrowid,
+                trainer,
+                exercise_id,
                 name,
                 description or None,
                 duration_minutes,
                 equipment,
             )
-            self.data.exercises[exercise.id] = exercise
+            self.data.exercises[(trainer.id, exercise.id)] = exercise
         return exercise
 
-    def create_exercise(self, name, description):
-        return self.save_exercise(None, name, description, None, None)
+    def create_exercise(self, trainer_id, name, description):
+        return self.save_exercise(
+            trainer_id, None, name, description, None, None
+        )
 
-    def delete_exercise(self, exercise_id):
+    def delete_exercise(self, trainer_id, exercise_id):
+        exercise = self.data.exercises.get((trainer_id, exercise_id))
+        if exercise is None:
+            raise ValueError("Vezba ovog trenera nije pronadjena.")
+
         connection = self.connection_factory()
         try:
-            connection.execute("DELETE FROM exercises WHERE id = ?", (exercise_id,))
+            connection.execute(
+                "DELETE FROM exercises WHERE trainer_id = ? AND id = ?",
+                (trainer_id, exercise_id),
+            )
             connection.commit()
         finally:
             connection.close()
 
         keys = list(self.data.workout_exercises.keys())
         for key in keys:
-            if key[1] == exercise_id:
+            item = self.data.workout_exercises[key]
+            if item.exercise is exercise:
                 del self.data.workout_exercises[key]
 
         rating_keys = list(self.data.exercise_ratings.keys())
         for key in rating_keys:
-            if key[1] == exercise_id:
+            rating = self.data.exercise_ratings[key]
+            if rating.exercise is exercise:
                 del self.data.exercise_ratings[key]
 
-        self.data.exercises.pop(exercise_id, None)
+        self.data.exercises.pop((trainer_id, exercise_id), None)
 
     # ------------------------------ OPREMA ------------------------------
     def list_equipment(self):
@@ -441,11 +483,24 @@ class FitnessRepository:
         return self._count_missed(relation, payment)
 
     def create_workout(
-        self, trainer_id, client_id, workout_name, exercise_ids, scheduled_date
+        self,
+        trainer_id,
+        client_id,
+        workout_name,
+        exercise_assignments,
+        scheduled_date,
     ):
         relation = self.data.trainer_client_relations.get((trainer_id, client_id))
         if relation is None:
             raise ValueError("Odnos trenera i klijenta nije pronadjen.")
+
+        selected_assignments = []
+        for assignment in exercise_assignments:
+            exercise_id = assignment["exercise_id"]
+            exercise = self.data.exercises.get((trainer_id, exercise_id))
+            if exercise is None:
+                raise ValueError("Izabrana vezba ne pripada ovom treneru.")
+            selected_assignments.append((exercise, assignment))
 
         connection = self.connection_factory()
         try:
@@ -459,14 +514,23 @@ class FitnessRepository:
             )
             workout_id = cursor.lastrowid
             order = 1
-            for exercise_id in exercise_ids:
+            for exercise, assignment in selected_assignments:
                 connection.execute(
                     """
                     INSERT INTO workout_exercises (
-                        workout_id, exercise_id, exercise_order
-                    ) VALUES (?, ?, ?)
+                        workout_id, trainer_id, exercise_id, exercise_order,
+                        sets, repetitions, duration_minutes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (workout_id, exercise_id, order),
+                    (
+                        workout_id,
+                        trainer_id,
+                        exercise.id,
+                        order,
+                        assignment["sets"],
+                        assignment["repetitions"],
+                        assignment["duration_minutes"],
+                    ),
                 )
                 order += 1
             connection.commit()
@@ -481,18 +545,18 @@ class FitnessRepository:
         )
         self.data.workouts[workout.id] = workout
         order = 1
-        for exercise_id in exercise_ids:
+        for exercise, assignment in selected_assignments:
             item = WorkoutExercise(
                 workout,
-                self.data.exercises[exercise_id],
+                exercise,
                 order,
-                None,
-                None,
-                None,
+                assignment["sets"],
+                assignment["repetitions"],
+                assignment["duration_minutes"],
                 False,
                 None,
             )
-            self.data.workout_exercises[(workout.id, exercise_id)] = item
+            self.data.workout_exercises[(workout.id, exercise.id)] = item
             order += 1
         return workout
 
@@ -1071,6 +1135,15 @@ class FitnessRepository:
         profile.average_rating = None
         if ratings:
             profile.average_rating = round(sum(ratings) / len(ratings), 2)
+
+    def _next_exercise_id(self, trainer_id):
+        largest_id = 0
+        for exercise in self.data.exercises.values():
+            if exercise.trainer.id != trainer_id:
+                continue
+            if exercise.id > largest_id:
+                largest_id = exercise.id
+        return largest_id + 1
 
     @staticmethod
     def _trainer_sort_key(profile):
