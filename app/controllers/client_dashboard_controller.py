@@ -33,7 +33,7 @@ class ClientDashboardController:
     def send_request(self):
         trainer = self.view.get_selected_trainer()
         if trainer is None:
-            self.view.show_error("Prvo izaberite trenera.")
+            self.view.show_error("Select a trainer first.")
             return
         try:
             self.fitness_service.send_client_request(
@@ -44,7 +44,7 @@ class ClientDashboardController:
         except ValueError as error:
             self.view.show_error(str(error))
             return
-        self.view.show_info("Zahtev je poslat treneru.")
+        self.view.show_info("Request sent to the trainer.")
         self.refresh()
 
     def open_workouts(self):
@@ -88,18 +88,18 @@ class ClientDashboardController:
             self.workouts_view.show_error(str(error))
             self.load_workout_exercises(workout)
             return
-        self.workouts_view.show_info("Status vezbe je sacuvan.")
+        self.workouts_view.show_info("Exercise status saved.")
         self.load_workout_exercises(workout)
 
     def open_workout_rating(self):
         workout = self.workouts_view.get_selected_workout()
         if workout is None:
-            self.workouts_view.show_error("Izaberite trening.")
+            self.workouts_view.show_error("Select a workout.")
             return
-        self._open_rating("workout", workout, f"Oceni trening: {workout.name}")
+        self._open_rating("workout", workout, f"Rate workout: {workout.name}")
 
     def open_exercise_rating(self, exercise):
-        self._open_rating("exercise", exercise, f"Oceni vezbu: {exercise.name}")
+        self._open_rating("exercise", exercise, f"Rate exercise: {exercise.name}")
 
     def open_trainer_rating(self):
         relation = self._get_active_relation()
@@ -108,7 +108,7 @@ class ClientDashboardController:
         self._open_rating(
             "trainer",
             relation,
-            f"Oceni trenera: {relation.trainer_name}",
+            f"Rate trainer: {relation.trainer_name}",
         )
 
     def _open_rating(self, rating_type, target, title):
@@ -158,11 +158,11 @@ class ClientDashboardController:
         rating_type = self.rating_type
         self.close_rating()
         if rating_type == "trainer":
-            self.view.show_info("Ocena trenera je sacuvana ili azurirana.")
+            self.view.show_info("Trainer rating saved or updated.")
             self.refresh()
         else:
             self._refresh_workouts()
-            self.workouts_view.show_info("Ocena je sacuvana ili azurirana.")
+            self.workouts_view.show_info("Rating saved or updated.")
 
     def close_rating(self):
         if self.rating_view:
@@ -177,7 +177,7 @@ class ClientDashboardController:
             self.workouts_relation.trainer_id,
         )
         self.workouts_view.selected_workout = None
-        self.workouts_view.workout_title.configure(text="Izaberite trening.")
+        self.workouts_view.workout_title.configure(text="Select a workout.")
         self.workouts_view.show_workouts(workouts)
         self.workouts_view.show_exercises([])
 
@@ -192,10 +192,10 @@ class ClientDashboardController:
     def pay_membership(self):
         relation = self.view.get_selected_relation()
         if relation is None or relation.status != "accepted":
-            self.view.show_error("Trener prvo mora da prihvati zahtev.")
+            self.view.show_error("The trainer must accept the request first.")
             return
         if relation.is_paid:
-            self.view.show_error("Clanarina je vec placena.")
+            self.view.show_error("The membership has already been paid.")
             return
         try:
             self.fitness_service.pay_membership(
@@ -205,7 +205,7 @@ class ClientDashboardController:
         except ValueError as error:
             self.view.show_error(str(error))
             return
-        self.view.show_info("Clanarina je placena i vazi narednih mesec dana.")
+        self.view.show_info("Membership paid. It is valid for the next month.")
         self.refresh()
 
     def open_chat(self):
@@ -228,10 +228,10 @@ class ClientDashboardController:
     def _get_active_relation(self):
         relation = self.view.get_selected_relation()
         if relation is None:
-            self.view.show_error("Izaberite trenera iz svojih odnosa.")
+            self.view.show_error("Select a trainer from your relationships.")
             return None
         if relation.status != "accepted" or not relation.is_paid:
-            self.view.show_error("Ova clanarina nije aktivna.")
+            self.view.show_error("This membership is not active.")
             return None
         return relation
 
@@ -250,7 +250,7 @@ class ClientDashboardController:
         except ValueError as error:
             self.profile_view.show_error(str(error))
             return
-        self.profile_view.show_info("Profil je sacuvan.")
+        self.profile_view.show_info("Profile saved.")
 
     def close_profile(self):
         if self.profile_view:

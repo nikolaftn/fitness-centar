@@ -8,17 +8,17 @@ DATABASE_PATH = DATA_DIRECTORY / "fitness.db"
 
 
 def require_database(database_path=DATABASE_PATH):
-    """Prijavljuje jasnu gresku ako baza jos nije rucno napravljena."""
+    """Reports a clear error if the database has not been created manually yet."""
     database_path = Path(database_path)
     if not database_path.is_file():
         raise FileNotFoundError(
-            "Baza nije inicijalizovana. Prvo pokrenite: "
+            "Database is not initialized. First run: "
             "python reset_test_database.py"
         )
 
 
 def get_connection(database_path=DATABASE_PATH):
-    """Otvara postojecu lokalnu SQLite bazu."""
+    """Opens the existing local SQLite database."""
     database_path = Path(database_path)
     require_database(database_path)
     connection = sqlite3.connect(database_path)

@@ -18,9 +18,9 @@ class RegistrationService:
             years = int(data["years_of_experience"].strip())
             price = float(data["price_per_training"].strip().replace(",", "."))
         except ValueError as error:
-            raise ValueError("Godine iskustva i cena moraju biti brojevi.") from error
+            raise ValueError("Years of experience and price must be numbers.") from error
         if years < 0 or price < 0:
-            raise ValueError("Godine iskustva i cena ne mogu biti negativni.")
+            raise ValueError("Years of experience and price cannot be negative.")
         return self.user_repository.create_trainer(
             data["username"].strip(), data["password"], data["first_name"].strip(),
             data["last_name"].strip(), data["birth_date"].strip(),

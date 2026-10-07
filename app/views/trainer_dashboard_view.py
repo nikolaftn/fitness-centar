@@ -7,7 +7,7 @@ class TrainerDashboardView:
     def __init__(self, parent, controller, user):
         self.controller = controller
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Trener")
+        self.window.title("Trainer")
         self.window.geometry("1280x760")
         self.window.minsize(1100, 680)
         self.window.grab_set()
@@ -25,36 +25,36 @@ class TrainerDashboardView:
 
         ctk.CTkLabel(
             header,
-            text=f"Trener: {user.full_name}",
+            text=f"Trainer: {user.full_name}",
             font=ctk.CTkFont(size=22, weight="bold"),
         ).pack(side="left")
 
         ctk.CTkButton(
             header,
-            text="Osvezi",
+            text="Refresh",
             width=90,
             command=self.controller.refresh,
         ).pack(side="right", padx=(8, 0))
         ctk.CTkButton(
             header,
-            text="Chat sa administratorom",
+            text="Chat with Administrator",
             command=self.controller.open_admin_chat,
         ).pack(side="right", padx=(8, 0))
         ctk.CTkButton(
             header,
-            text="Sprave",
+            text="Equipment",
             width=100,
             command=self.controller.open_equipment_management,
         ).pack(side="right", padx=(8, 0))
         ctk.CTkButton(
             header,
-            text="Vezbe",
+            text="Exercises",
             width=100,
             command=self.controller.open_exercise_management,
         ).pack(side="right", padx=(8, 0))
         ctk.CTkButton(
             header,
-            text="Moj profil",
+            text="My Profile",
             width=110,
             command=self.controller.open_profile,
         ).pack(side="right", padx=(8, 0))
@@ -65,7 +65,7 @@ class TrainerDashboardView:
 
         self.center_rent_label = ctk.CTkLabel(
             panel,
-            text="Provera zakupa fitnes centra...",
+            text="Checking fitness center rent...",
             anchor="w",
         )
         self.center_rent_label.pack(
@@ -74,7 +74,7 @@ class TrainerDashboardView:
 
         self.center_rent_button = ctk.CTkButton(
             panel,
-            text="Plati mesecni zakup",
+            text="Pay monthly rent",
             command=self.controller.pay_center_rent,
         )
         self.center_rent_button.pack(side="right", padx=14, pady=10)
@@ -94,7 +94,7 @@ class TrainerDashboardView:
 
         ctk.CTkLabel(
             panel,
-            text="Novi zahtevi klijenata",
+            text="New Client Requests",
             font=ctk.CTkFont(size=18, weight="bold"),
         ).pack(anchor="w", padx=14, pady=(14, 8))
 
@@ -103,12 +103,12 @@ class TrainerDashboardView:
 
         ctk.CTkLabel(
             panel,
-            text="Podaci iz izabranog zahteva",
+            text="Selected Request Details",
             font=ctk.CTkFont(size=15, weight="bold"),
         ).pack(anchor="w", padx=14, pady=(2, 4))
         self.request_details = ctk.CTkLabel(
             panel,
-            text="Izaberite zahtev.",
+            text="Select a request.",
             justify="left",
             anchor="nw",
             wraplength=520,
@@ -119,17 +119,17 @@ class TrainerDashboardView:
         buttons.pack(fill="x", padx=10, pady=(0, 14))
         ctk.CTkButton(
             buttons,
-            text="Pogledaj ocene klijenta",
+            text="View Client Ratings",
             command=self.controller.open_request_client_ratings,
         ).pack(side="left", padx=4)
         ctk.CTkButton(
             buttons,
-            text="Prihvati zahtev",
+            text="Accept Request",
             command=self.controller.accept_selected_request,
         ).pack(side="right", padx=4)
         ctk.CTkButton(
             buttons,
-            text="Odbij zahtev",
+            text="Reject Request",
             fg_color="#6b7280",
             command=self.controller.reject_selected_request,
         ).pack(side="right", padx=4)
@@ -140,7 +140,7 @@ class TrainerDashboardView:
 
         ctk.CTkLabel(
             panel,
-            text="Klijenti sa aktivnom clanarinom",
+            text="Clients with Active Memberships",
             font=ctk.CTkFont(size=18, weight="bold"),
         ).pack(anchor="w", padx=14, pady=(14, 8))
 
@@ -149,7 +149,7 @@ class TrainerDashboardView:
 
         self.client_details = ctk.CTkLabel(
             panel,
-            text="Izaberite klijenta.",
+            text="Select a client.",
             justify="left",
             anchor="nw",
             wraplength=520,
@@ -160,18 +160,18 @@ class TrainerDashboardView:
         first_row.pack(fill="x", padx=10, pady=(0, 6))
         ctk.CTkButton(
             first_row,
-            text="Dodeli trening",
+            text="Assign Workout",
             command=self.controller.open_workout_assignment,
         ).pack(side="left", fill="x", expand=True, padx=4)
         ctk.CTkButton(
             first_row,
-            text="Otvori chat",
+            text="Open Chat",
             command=self.controller.open_client_chat,
         ).pack(side="left", fill="x", expand=True, padx=4)
 
         ctk.CTkButton(
             panel,
-            text="Oceni izabranog klijenta",
+            text="Rate Selected Client",
             command=self.controller.open_client_rating,
         ).pack(fill="x", padx=14, pady=(0, 14))
 
@@ -183,12 +183,12 @@ class TrainerDashboardView:
         client_data = self.client_membership_data[relation.client.id]
         return (
             f"{relation.client.full_name} ({relation.client.username})\n"
-            f"Clanarina do: {client_data['active_until']} | "
+            f"Membership until: {client_data['active_until']} | "
             f"Propusteno: {client_data['missed_count']}"
         )
 
     def show_requests(self, rows):
-        self.request_details.configure(text="Izaberite zahtev.")
+        self.request_details.configure(text="Select a request.")
         self.requests_list.set_rows(
             rows,
             "client_id",
@@ -199,15 +199,15 @@ class TrainerDashboardView:
     def _show_request_details(self, relation):
         self.request_details.configure(
             text=(
-                f"Klijent: {relation.client.full_name}\n"
-                f"Korisnicko ime: {relation.client.username}\n"
-                f"Treninzi nedeljno: {relation.workouts_per_week}\n"
-                f"Ciljevi: {relation.goals or '-'}\n"
-                f"Visina: {relation.height_cm or '-'} cm\n"
-                f"Tezina: {relation.weight_kg or '-'} kg\n"
-                f"Mesto treninga: {relation.training_location or '-'}\n"
-                f"Zdravstveni problemi: {relation.health_conditions or '-'}\n"
-                f"Mesecna cena: {relation.monthly_price or 0:.2f}"
+                f"Client: {relation.client.full_name}\n"
+                f"Username: {relation.client.username}\n"
+                f"Workouts per week: {relation.workouts_per_week}\n"
+                f"Goals: {relation.goals or '-'}\n"
+                f"Height: {relation.height_cm or '-'} cm\n"
+                f"Weight: {relation.weight_kg or '-'} kg\n"
+                f"Training location: {relation.training_location or '-'}\n"
+                f"Health conditions: {relation.health_conditions or '-'}\n"
+                f"Monthly price: {relation.monthly_price or 0:.2f}"
             )
         )
 
@@ -221,7 +221,7 @@ class TrainerDashboardView:
                 "missed_count": missed_count,
             }
 
-        self.client_details.configure(text="Izaberite klijenta.")
+        self.client_details.configure(text="Select a client.")
         self.clients_list.set_rows(
             relations,
             "client_id",
@@ -234,41 +234,41 @@ class TrainerDashboardView:
         if payment and payment.rent_status == "active":
             self.center_rent_label.configure(
                 text=(
-                    f"Zakup fitnes centra je placen do {payment.valid_until} | "
-                    f"Iznos: {amount:.2f}"
+                    f"Fitness center rent is paid until {payment.valid_until} | "
+                    f"Amount: {amount:.2f}"
                 ),
                 text_color="darkgreen",
             )
-            self.center_rent_button.configure(text="Zakup je placen", state="disabled")
+            self.center_rent_button.configure(text="Rent Paid", state="disabled")
         elif payment:
             self.center_rent_label.configure(
                 text=(
-                    f"Zakup fitnes centra je istekao {payment.valid_until} | "
-                    f"Mesecni iznos: {amount:.2f}"
+                    f"Fitness center rent expired on {payment.valid_until} | "
+                    f"Monthly amount: {amount:.2f}"
                 ),
                 text_color="firebrick",
             )
             self.center_rent_button.configure(
-                text=f"Plati mesecni zakup {amount:.2f}", state="normal"
+                text=f"Pay monthly rent {amount:.2f}", state="normal"
             )
         else:
             self.center_rent_label.configure(
-                text=f"Zakup fitnes centra nije placen | Mesecni iznos: {amount:.2f}",
+                text=f"Fitness center rent unpaid | Monthly amount: {amount:.2f}",
                 text_color="firebrick",
             )
             self.center_rent_button.configure(
-                text=f"Plati mesecni zakup {amount:.2f}", state="normal"
+                text=f"Pay monthly rent {amount:.2f}", state="normal"
             )
 
     def _show_client_details(self, relation):
         self.client_details.configure(
             text=(
-                f"Ciljevi: {relation.goals or '-'}\n"
-                f"Treninzi nedeljno: {relation.workouts_per_week}\n"
-                f"Visina/tezina: {relation.height_cm or '-'} cm / "
+                f"Goals: {relation.goals or '-'}\n"
+                f"Workouts per week: {relation.workouts_per_week}\n"
+                f"Height/Weight: {relation.height_cm or '-'} cm / "
                 f"{relation.weight_kg or '-'} kg\n"
-                f"Mesto treninga: {relation.training_location or '-'}\n"
-                f"Zdravstveni problemi: {relation.health_conditions or '-'}"
+                f"Training location: {relation.training_location or '-'}\n"
+                f"Health conditions: {relation.health_conditions or '-'}"
             )
         )
 

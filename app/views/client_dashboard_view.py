@@ -7,7 +7,7 @@ class ClientDashboardView:
     def __init__(self, parent, controller, user):
         self.controller = controller
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Klijent")
+        self.window.title("Client")
         self.window.geometry("1280x760")
         self.window.minsize(1100, 680)
         self.window.grab_set()
@@ -23,18 +23,18 @@ class ClientDashboardView:
         header.pack(fill="x", padx=24, pady=(18, 8))
         ctk.CTkLabel(
             header,
-            text=f"Klijent: {user.full_name}",
+            text=f"Client: {user.full_name}",
             font=ctk.CTkFont(size=22, weight="bold"),
         ).pack(side="left")
         ctk.CTkButton(
             header,
-            text="Osvezi",
+            text="Refresh",
             width=90,
             command=self.controller.refresh,
         ).pack(side="right", padx=(8, 0))
         ctk.CTkButton(
             header,
-            text="Moj profil",
+            text="My Profile",
             width=110,
             command=self.controller.open_profile,
         ).pack(side="right")
@@ -53,7 +53,7 @@ class ClientDashboardView:
 
         ctk.CTkLabel(
             panel,
-            text="Dostupni treneri",
+            text="Available Trainers",
             font=ctk.CTkFont(size=18, weight="bold"),
         ).pack(anchor="w", padx=14, pady=(14, 8))
         self.trainers_list = ListPanel(panel, height=190)
@@ -61,7 +61,7 @@ class ClientDashboardView:
 
         self.trainer_details = ctk.CTkLabel(
             panel,
-            text="Izaberite trenera.",
+            text="Select a trainer.",
             justify="left",
             anchor="w",
             wraplength=520,
@@ -70,16 +70,16 @@ class ClientDashboardView:
 
         self.request_entries = {}
         fields = [
-            ("workouts_per_week", "Treninzi nedeljno", "3"),
-            ("goals", "Ciljevi", ""),
-            ("height_cm", "Visina u cm", ""),
-            ("weight_kg", "Tezina u kg", ""),
-            ("health_conditions", "Zdravstveni problemi", ""),
+            ("workouts_per_week", "Workouts per Week", "3"),
+            ("goals", "Goals", ""),
+            ("height_cm", "Height (cm)", ""),
+            ("weight_kg", "Weight (kg)", ""),
+            ("health_conditions", "Health Conditions", ""),
         ]
         for key, label, value in fields:
             self.request_entries[key] = self._entry(panel, label, value)
 
-        ctk.CTkLabel(panel, text="Mesto treninga").pack(anchor="w", padx=14)
+        ctk.CTkLabel(panel, text="Training Location").pack(anchor="w", padx=14)
         self.location_variable = ctk.StringVar(value="gym")
         ctk.CTkOptionMenu(
             panel,
@@ -89,7 +89,7 @@ class ClientDashboardView:
 
         ctk.CTkButton(
             panel,
-            text="Posalji zahtev izabranom treneru",
+            text="Send Request to Selected Trainer",
             command=self.controller.send_request,
         ).pack(fill="x", padx=12, pady=(4, 14))
 
@@ -99,7 +99,7 @@ class ClientDashboardView:
 
         ctk.CTkLabel(
             panel,
-            text="Moji treneri i zahtevi",
+            text="My Trainers and Requests",
             font=ctk.CTkFont(size=18, weight="bold"),
         ).pack(anchor="w", padx=14, pady=(14, 8))
         self.relations_list = ListPanel(panel, height=400)
@@ -107,7 +107,7 @@ class ClientDashboardView:
 
         self.relation_details = ctk.CTkLabel(
             panel,
-            text="Izaberite odnos sa trenerom.",
+            text="Select a trainer relationship.",
             justify="left",
             anchor="w",
             wraplength=520,
@@ -118,26 +118,26 @@ class ClientDashboardView:
         row.pack(fill="x", padx=10, pady=(0, 6))
         self.workouts_button = ctk.CTkButton(
             row,
-            text="Otvori treninge",
+            text="Open Workouts",
             command=self.controller.open_workouts,
         )
         self.workouts_button.pack(side="left", fill="x", expand=True, padx=4)
         self.chat_button = ctk.CTkButton(
             row,
-            text="Otvori chat",
+            text="Open Chat",
             command=self.controller.open_chat,
         )
         self.chat_button.pack(side="left", fill="x", expand=True, padx=4)
 
         self.pay_button = ctk.CTkButton(
             panel,
-            text="Plati mesecnu clanarinu",
+            text="Pay Monthly Membership",
             command=self.controller.pay_membership,
         )
         self.pay_button.pack(fill="x", padx=14, pady=(0, 6))
         self.rate_trainer_button = ctk.CTkButton(
             panel,
-            text="Oceni trenera",
+            text="Rate Trainer",
             command=self.controller.open_trainer_rating,
         )
         self.rate_trainer_button.pack(fill="x", padx=14, pady=(0, 14))
@@ -156,17 +156,17 @@ class ClientDashboardView:
         average_rating = self.trainer_average_ratings[profile.user.id]
         return (
             f"{profile.full_name}\n"
-            f"Cena treninga: {profile.price_per_training:.2f} | "
-            f"Ocena: {average_rating or 'nema'}"
+            f"Session price: {profile.price_per_training:.2f} | "
+            f"Rating: {average_rating or 'None'}"
         )
 
     @staticmethod
     def _relation_state(relation):
         if relation.status == "pending":
-            return "Zahtev ceka odgovor trenera"
+            return "Request awaiting trainer response"
         if relation.is_paid:
-            return f"Clanarina aktivna do {relation.expiration_date}"
-        return "Zahtev prihvacen - clanarina nije aktivna"
+            return f"Membership active until {relation.expiration_date}"
+        return "Request accepted - membership is inactive"
 
     def show_trainers(self, rows):
         profiles = []
@@ -175,7 +175,7 @@ class ClientDashboardView:
             profiles.append(profile)
             self.trainer_average_ratings[profile.user.id] = average_rating
 
-        self.trainer_details.configure(text="Izaberite trenera.")
+        self.trainer_details.configure(text="Select a trainer.")
         self.trainers_list.set_rows(
             profiles,
             "user_id",
@@ -186,14 +186,14 @@ class ClientDashboardView:
     def _show_trainer_details(self, profile):
         self.trainer_details.configure(
             text=(
-                f"Skolovanje: {profile.education or '-'}\n"
-                f"Iskustvo: {profile.years_of_experience} godina\n"
-                f"Biografija: {profile.biography or '-'}"
+                f"Education: {profile.education or '-'}\n"
+                f"Experience: {profile.years_of_experience} years\n"
+                f"Biography: {profile.biography or '-'}"
             )
         )
 
     def show_relations(self, rows):
-        self.relation_details.configure(text="Izaberite odnos sa trenerom.")
+        self.relation_details.configure(text="Select a trainer relationship.")
         self._set_relation_actions(None)
         self.relations_list.set_rows(
             rows,
@@ -209,9 +209,9 @@ class ClientDashboardView:
         self.relation_details.configure(
             text=(
                 f"{self._relation_state(relation)}\n"
-                f"Mesecna cena: {relation.monthly_price or 0:.2f}\n"
-                f"Treninzi nedeljno: {relation.workouts_per_week}\n"
-                f"Ciljevi: {relation.goals or '-'}"
+                f"Monthly price: {relation.monthly_price or 0:.2f}\n"
+                f"Workouts per week: {relation.workouts_per_week}\n"
+                f"Goals: {relation.goals or '-'}"
             )
         )
         self._set_relation_actions(relation)
@@ -226,10 +226,10 @@ class ClientDashboardView:
         self.pay_button.configure(state="normal" if can_pay else "disabled")
         if can_pay:
             self.pay_button.configure(
-                text=f"Plati mesecnu clanarinu {relation.monthly_price or 0:.2f}"
+                text=f"Pay monthly membership {relation.monthly_price or 0:.2f}"
             )
         else:
-            self.pay_button.configure(text="Plati mesecnu clanarinu")
+            self.pay_button.configure(text="Pay Monthly Membership")
 
     def get_selected_trainer(self):
         return self.trainers_list.selected_row

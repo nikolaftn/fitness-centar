@@ -10,7 +10,7 @@ class UsernameAlreadyExistsError(ValueError):
 
 
 class UserRepository:
-    """Radi nad User objektima i cuva njihove izmene u bazi."""
+    """Works with User objects and saves their changes to the database."""
 
     def __init__(self, application_data, connection_factory=get_connection):
         self.data = application_data
@@ -168,7 +168,7 @@ class UserRepository:
     def update_profile(self, user_id, first_name, last_name, birth_date):
         user = self.data.users.get(user_id)
         if user is None:
-            raise ValueError("Korisnik nije pronadjen.")
+            raise ValueError("User not found.")
 
         connection = self.connection_factory()
         try:
@@ -191,7 +191,7 @@ class UserRepository:
 
     def _check_username(self, username):
         if self.find_by_username(username) is not None:
-            raise UsernameAlreadyExistsError("Korisnicko ime je vec zauzeto.")
+            raise UsernameAlreadyExistsError("Username is already taken.")
 
     @staticmethod
     def _current_time():
@@ -201,5 +201,5 @@ class UserRepository:
     def _raise_readable_integrity_error(error):
         if "users.username" in str(error):
             raise UsernameAlreadyExistsError(
-                "Korisnicko ime je vec zauzeto."
+                "Username is already taken."
             ) from error

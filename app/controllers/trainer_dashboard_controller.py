@@ -37,7 +37,7 @@ class TrainerDashboardController:
             self.view.show_error(str(error))
             return
         self.refresh()
-        self.view.show_info("Mesecni zakup fitnes centra je placen.")
+        self.view.show_info("Monthly fitness center rent paid.")
 
     def accept_selected_request(self):
         self._decide_request("accepted")
@@ -48,7 +48,7 @@ class TrainerDashboardController:
     def _decide_request(self, status):
         request = self.view.get_selected_request()
         if request is None:
-            self.view.show_error("Izaberite zahtev klijenta.")
+            self.view.show_error("Select a client request.")
             return
         try:
             changed = self.fitness_service.decide_client_request(
@@ -60,20 +60,20 @@ class TrainerDashboardController:
             self.view.show_error(str(error))
             return
         if not changed:
-            self.view.show_error("Zahtev vise nije na cekanju.")
+            self.view.show_error("The request is no longer pending.")
             return
         if status == "accepted":
             self.view.show_info(
-                "Zahtev je prihvacen. Klijent ce se pojaviti desno nakon uplate."
+                "Request accepted. The client will appear on the right after payment."
             )
         else:
-            self.view.show_info("Zahtev je odbijen.")
+            self.view.show_info("The request was rejected.")
         self.refresh()
 
     def open_request_client_ratings(self):
         request = self.view.get_selected_request()
         if request is None:
-            self.view.show_error("Izaberite zahtev klijenta.")
+            self.view.show_error("Select a client request.")
             return
         ratings = self.fitness_service.get_client_ratings(request.client.id)
         self.ratings_view = ClientRatingsView(
@@ -85,12 +85,12 @@ class TrainerDashboardController:
     def open_workout_assignment(self):
         client = self.view.get_selected_client()
         if client is None:
-            self.view.show_error("Izaberite aktivnog klijenta.")
+            self.view.show_error("Select an active client.")
             return
         if self.view.get_selected_client_missed_count() >= 2:
             self.view.show_error(
-                "Klijent je u ovoj clanarini propustio dva treninga. "
-                "Novi trening moze dobiti tek posle sledece mesecne uplate."
+                "The client has missed two workouts during this membership. "
+                "They can receive another workout after the next monthly payment."
             )
             return
         if self._focus_existing(self.workout_view):
@@ -120,7 +120,7 @@ class TrainerDashboardController:
             return
         client_name = self.workout_client.client.full_name
         self.close_workout_assignment()
-        self.view.show_info(f"Trening je dodeljen klijentu {client_name}.")
+        self.view.show_info(f"Workout assigned to client {client_name}.")
         self.refresh()
 
     def close_workout_assignment(self):
@@ -132,7 +132,7 @@ class TrainerDashboardController:
     def open_client_chat(self):
         client = self.view.get_selected_client()
         if client is None:
-            self.view.show_error("Izaberite aktivnog klijenta.")
+            self.view.show_error("Select an active client.")
             return
         if self.client_chat_controller and self.client_chat_controller.is_open():
             if self.client_chat_controller.other_user_id == client.client.id:
@@ -150,7 +150,7 @@ class TrainerDashboardController:
     def open_client_rating(self):
         client = self.view.get_selected_client()
         if client is None:
-            self.view.show_error("Izaberite aktivnog klijenta.")
+            self.view.show_error("Select an active client.")
             return
         if self._focus_existing(self.client_rating_view):
             return
@@ -174,7 +174,7 @@ class TrainerDashboardController:
             self.client_rating_view.show_error(str(error))
             return
         self.close_client_rating()
-        self.view.show_info("Ocena klijenta je sacuvana.")
+        self.view.show_info("Client rating saved.")
 
     def close_client_rating(self):
         if self.client_rating_view:
@@ -205,17 +205,17 @@ class TrainerDashboardController:
             return
         self.exercise_view.clear_form()
         self._refresh_exercise_management()
-        self.exercise_view.show_info("Vezba je sacuvana.")
+        self.exercise_view.show_info("Exercise saved.")
 
     def delete_exercise(self):
         exercise_id = self.exercise_view.get_selected_exercise_id()
         if exercise_id is None:
-            self.exercise_view.show_error("Izaberite vezbu.")
+            self.exercise_view.show_error("Select an exercise.")
             return
         self.fitness_service.delete_exercise(self.user.id, exercise_id)
         self.exercise_view.clear_form()
         self._refresh_exercise_management()
-        self.exercise_view.show_info("Vezba je obrisana.")
+        self.exercise_view.show_info("Exercise deleted.")
 
     def close_exercise_management(self):
         if self.exercise_view:
@@ -241,17 +241,17 @@ class TrainerDashboardController:
             return
         self.equipment_view.clear_form()
         self._refresh_equipment_management()
-        self.equipment_view.show_info("Sprava je sacuvana.")
+        self.equipment_view.show_info("Equipment saved.")
 
     def delete_equipment(self):
         equipment_id = self.equipment_view.get_selected_equipment_id()
         if equipment_id is None:
-            self.equipment_view.show_error("Izaberite spravu.")
+            self.equipment_view.show_error("Select equipment.")
             return
         self.fitness_service.delete_equipment(equipment_id)
         self.equipment_view.clear_form()
         self._refresh_equipment_management()
-        self.equipment_view.show_info("Sprava je obrisana.")
+        self.equipment_view.show_info("Equipment deleted.")
 
     def close_equipment_management(self):
         if self.equipment_view:
@@ -273,7 +273,7 @@ class TrainerDashboardController:
         except ValueError as error:
             self.profile_view.show_error(str(error))
             return
-        self.profile_view.show_info("Profil je sacuvan.")
+        self.profile_view.show_info("Profile saved.")
 
     def close_profile(self):
         if self.profile_view:

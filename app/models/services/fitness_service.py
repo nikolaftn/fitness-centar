@@ -8,7 +8,7 @@ from app.models.services.validation import (
 
 
 class FitnessService:
-    """Poslovna pravila za rad klijenta i trenera."""
+    """Business rules for clients and trainers."""
 
     def __init__(self, fitness_repository, user_repository):
         self.fitness_repository = fitness_repository
@@ -47,7 +47,7 @@ class FitnessService:
         request = parse_client_request(data)
         price_per_training = self.fitness_repository.get_trainer_price(trainer_id)
         if price_per_training is None:
-            raise ValueError("Izabrani trener nema profil.")
+            raise ValueError("The selected trainer has no profile.")
         monthly_price = price_per_training * request["workouts_per_week"] * 4
         self.fitness_repository.create_client_request(
             trainer_id, client_id, **request, monthly_price=monthly_price
@@ -59,7 +59,7 @@ class FitnessService:
         if self.fitness_repository.get_active_membership_expiration(
             trainer_id, client_id
         ) is None:
-            raise ValueError("Treninzi se mogu otvoriti samo tokom aktivne clanarine.")
+            raise ValueError("Workouts are available only during an active membership.")
         return self.fitness_repository.list_client_workouts(client_id, trainer_id)
 
     def get_workout_exercises(self, workout_id, client_id):
@@ -68,7 +68,7 @@ class FitnessService:
     def rate_workout(self, workout_id, client_id, rating, comment):
         self._validate_client_workout_action(workout_id, client_id)
         if not self.fitness_repository.all_workout_exercises_completed(workout_id):
-            raise ValueError("Prvo oznacite sve vezbe iz treninga kao odradjene.")
+            raise ValueError("Mark all exercises in the workout as completed first.")
         self.fitness_repository.rate_workout(
             workout_id, client_id, parse_rating(rating), comment.strip()
         )
@@ -84,7 +84,7 @@ class FitnessService:
         if not self.fitness_repository.is_workout_exercise_completed(
             workout_id, exercise_id
         ):
-            raise ValueError("Vezbu mozete oceniti tek kada je oznacite kao odradjenu.")
+            raise ValueError("You can rate an exercise only after marking it as completed.")
         self.fitness_repository.rate_exercise(
             workout_id, exercise_id, client_id, parse_rating(rating), comment.strip()
         )
@@ -94,7 +94,7 @@ class FitnessService:
     ):
         workout = self._validate_client_workout_action(workout_id, client_id)
         if workout.status != "assigned":
-            raise ValueError("Zavrsen trening vise ne mozete menjati.")
+            raise ValueError("A completed workout can no longer be changed.")
         self.fitness_repository.set_workout_exercise_completed(
             workout_id, exercise_id, client_id, completed
         )
@@ -131,9 +131,9 @@ class FitnessService:
             years = int(data["years_of_experience"])
             price = float(data["price_per_training"].replace(",", "."))
         except ValueError as error:
-            raise ValueError("Iskustvo i cena moraju biti nenegativni brojevi.") from error
+            raise ValueError("Experience and price must be non-negative numbers.") from error
         if years < 0 or price < 0:
-            raise ValueError("Iskustvo i cena moraju biti nenegativni brojevi.")
+            raise ValueError("Experience and price must be non-negative numbers.")
         data = data.copy()
         data["years_of_experience"] = years
         data["price_per_training"] = price
@@ -141,20 +141,20 @@ class FitnessService:
 
     def decide_client_request(self, trainer_id, client_id, status):
         if status not in {"accepted", "rejected"}:
-            raise ValueError("Neispravan status.")
+            raise ValueError("Invalid status.")
         return self.fitness_repository.decide_client_request(
             trainer_id, client_id, status
         )
 
     def save_exercise(self, trainer_id, data):
         if not data["name"]:
-            raise ValueError("Naziv vezbe je obavezan.")
+            raise ValueError("An exercise name is required.")
         try:
             duration = int(data["duration_minutes"]) if data["duration_minutes"] else None
         except ValueError as error:
-            raise ValueError("Trajanje mora biti pozitivan ceo broj.") from error
+            raise ValueError("Duration must be a positive whole number.") from error
         if duration is not None and duration <= 0:
-            raise ValueError("Trajanje mora biti pozitivan ceo broj.")
+            raise ValueError("Duration must be a positive whole number.")
         self.fitness_repository.save_exercise(
             trainer_id,
             data["id"],
@@ -169,9 +169,9 @@ class FitnessService:
 
     def save_equipment(self, data):
         if not data["name"]:
-            raise ValueError("Naziv opreme je obavezan.")
+            raise ValueError("An equipment name is required.")
         if data["category"] not in {"machine", "prop"}:
-            raise ValueError("Kategorija mora biti machine ili prop.")
+            raise ValueError("Category must be machine or prop.")
         self.fitness_repository.save_equipment(
             data["id"], data["name"], data["category"], data["description"]
         )
@@ -188,9 +188,9 @@ class FitnessService:
         scheduled_date,
     ):
         if not name:
-            raise ValueError("Naziv treninga je obavezan.")
+            raise ValueError("A workout name is required.")
         if not exercise_assignments:
-            raise ValueError("Izaberite bar jednu vezbu.")
+            raise ValueError("Select at least one exercise.")
 
         parsed_assignments = []
         for assignment in exercise_assignments:
@@ -200,11 +200,11 @@ class FitnessService:
                 duration_minutes = int(assignment["duration_minutes"])
             except ValueError as error:
                 raise ValueError(
-                    "Serije, ponavljanja i trajanje moraju biti celi brojevi."
+                    "Sets, repetitions, and duration must be whole numbers."
                 ) from error
             if sets <= 0 or repetitions <= 0 or duration_minutes <= 0:
                 raise ValueError(
-                    "Serije, ponavljanja i trajanje moraju biti veci od nule."
+                    "Sets, repetitions, and duration must be greater than zero."
                 )
             parsed_assignments.append(
                 {
@@ -228,13 +228,13 @@ class FitnessService:
     @staticmethod
     def _validate_workout_deadline(scheduled_date):
         if not scheduled_date:
-            raise ValueError("Rok za zavrsetak treninga je obavezan.")
+            raise ValueError("A workout deadline is required.")
         try:
             deadline = date.fromisoformat(scheduled_date)
         except ValueError as error:
-            raise ValueError("Rok mora biti datum u formatu GGGG-MM-DD.") from error
+            raise ValueError("The deadline must use the YYYY-MM-DD format.") from error
         if deadline < date.today():
-            raise ValueError("Rok za trening ne moze biti u proslosti.")
+            raise ValueError("The workout deadline cannot be in the past.")
         return deadline
 
     def _validate_workout_assignment(self, trainer_id, client_id, deadline):
@@ -245,12 +245,12 @@ class FitnessService:
         )
         if expiration is None:
             raise ValueError(
-                "Klijent nema aktivnu mesecnu clanarinu kod ovog trenera."
+                "The client has no active monthly membership with this trainer."
             )
         membership_deadline = date.fromisoformat(expiration[:10])
         if deadline >= membership_deadline:
             raise ValueError(
-                "Rok treninga mora biti pre isteka clanarine "
+                "The workout deadline must be before the membership expires "
                 f"({membership_deadline.isoformat()})."
             )
         missed_count = (
@@ -260,8 +260,8 @@ class FitnessService:
         )
         if missed_count >= 2:
             raise ValueError(
-                "Klijent je u ovoj clanarini propustio dva treninga. "
-                "Novi trening moze dobiti tek posle sledece mesecne uplate."
+                "The client has missed two workouts during this membership. "
+                "They can receive another workout after the next monthly payment."
             )
 
     def _validate_client_workout_action(self, workout_id, client_id):
@@ -269,15 +269,15 @@ class FitnessService:
         self.fitness_repository.mark_overdue_workouts()
         workout = self.fitness_repository.get_client_workout(workout_id, client_id)
         if workout is None:
-            raise ValueError("Trening nije pronadjen.")
+            raise ValueError("Workout not found.")
         if workout.status == "missed":
-            raise ValueError("Rok za ovaj trening je istekao.")
+            raise ValueError("The deadline for this workout has passed.")
         if date.fromisoformat(workout.scheduled_date) < date.today():
-            raise ValueError("Rok za ovaj trening je istekao.")
+            raise ValueError("The deadline for this workout has passed.")
         if self.fitness_repository.get_active_membership_expiration(
             workout.trainer.id, client_id
         ) is None:
-            raise ValueError("Clanarina kod ovog trenera vise nije aktivna.")
+            raise ValueError("The membership with this trainer is no longer active.")
         return workout
 
     def save_client_rating(self, trainer_id, client_id, rating, comment):
@@ -291,11 +291,11 @@ class FitnessService:
     def send_message(self, sender_id, receiver_id, text):
         text = text.strip()
         if not text:
-            raise ValueError("Poruka ne moze biti prazna.")
+            raise ValueError("A message cannot be empty.")
         self.fitness_repository.send_message(sender_id, receiver_id, text)
 
     def get_admin_id(self):
         admin_id = self.fitness_repository.get_admin_id()
         if admin_id is None:
-            raise ValueError("Administrator nije pronadjen.")
+            raise ValueError("Administrator not found.")
         return admin_id

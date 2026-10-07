@@ -8,7 +8,7 @@ class WorkoutAssignmentView:
         self.exercise_entries = {}
 
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Dodela treninga")
+        self.window.title("Workout Assignment")
         self.window.geometry("820x700")
         self.window.minsize(700, 580)
         self.window.transient(parent)
@@ -19,22 +19,22 @@ class WorkoutAssignmentView:
         header.pack(fill="x", padx=18, pady=(16, 8))
         ctk.CTkButton(
             header,
-            text="Nazad",
+            text="Back",
             width=90,
             command=self.controller.close_workout_assignment,
         ).pack(side="left")
         ctk.CTkLabel(
             header,
-            text=f"Novi trening za: {client_name}",
+            text=f"New workout for: {client_name}",
             font=ctk.CTkFont(size=20, weight="bold"),
         ).pack(side="left", padx=18)
 
-        self.name_entry = self._entry("Naziv treninga")
-        self.deadline_entry = self._entry("Rok za zavrsetak GGGG-MM-DD")
+        self.name_entry = self._entry("Workout Name")
+        self.deadline_entry = self._entry("Completion Deadline YYYY-MM-DD")
 
         ctk.CTkLabel(
             self.window,
-            text="Izaberite vezbe koje ulaze u trening",
+            text="Select Exercises for This Workout",
             font=ctk.CTkFont(size=15, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(8, 4))
 
@@ -46,7 +46,7 @@ class WorkoutAssignmentView:
 
         ctk.CTkButton(
             self.window,
-            text="Dodeli trening klijentu",
+            text="Assign Workout to Client",
             command=self.controller.submit_workout,
         ).pack(fill="x", padx=18, pady=(8, 18))
 
@@ -72,7 +72,7 @@ class WorkoutAssignmentView:
                 card,
                 text=(
                     f"{exercise.name} | {exercise.duration_minutes or '-'} min | "
-                    f"oprema: {exercise.equipment_name or 'bez opreme'}"
+                    f"Equipment: {exercise.equipment_name or 'no equipment'}"
                 ),
                 variable=selected,
             ).pack(fill="x", padx=10, pady=(10, 6), anchor="w")
@@ -81,14 +81,14 @@ class WorkoutAssignmentView:
             values.pack(fill="x", padx=8, pady=(0, 10))
             values.grid_columnconfigure((0, 1, 2), weight=1)
 
-            sets_entry = self._exercise_number_entry(values, 0, "Broj serija", "3")
+            sets_entry = self._exercise_number_entry(values, 0, "Number of sets", "3")
             repetitions_entry = self._exercise_number_entry(
-                values, 1, "Ponavljanja", "10"
+                values, 1, "Repetitions", "10"
             )
             duration_entry = self._exercise_number_entry(
                 values,
                 2,
-                "Trajanje u minutima",
+                "Duration (minutes)",
                 str(exercise.duration_minutes or 10),
             )
             self.exercise_entries[exercise.id] = {

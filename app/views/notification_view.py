@@ -5,7 +5,7 @@ class NotificationView:
     def __init__(self, parent, controller):
         self.controller = controller
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Obavestenje")
+        self.window.title("Notification")
         self.window.geometry("540x280")
         self.window.transient(parent)
         self.window.grab_set()
@@ -13,7 +13,7 @@ class NotificationView:
 
         ctk.CTkLabel(
             self.window,
-            text="Obavestenje o clanarini",
+            text="Membership Notification",
             font=ctk.CTkFont(size=20, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(22, 14))
 
@@ -28,7 +28,7 @@ class NotificationView:
 
         ctk.CTkButton(
             self.window,
-            text="Procitano",
+            text="Mark as Read",
             command=self.controller.mark_current_notification_read,
         ).pack(fill="x", padx=18, pady=(8, 18))
 

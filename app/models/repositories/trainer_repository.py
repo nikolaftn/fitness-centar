@@ -2,7 +2,7 @@ from app.database import get_connection
 
 
 class TrainerRepository:
-    """Radi nad trenerima koji su vec ucitani u memoriju."""
+    """Works with trainers already loaded in memory."""
 
     def __init__(self, application_data, connection_factory=get_connection):
         self.data = application_data
@@ -17,7 +17,7 @@ class TrainerRepository:
 
     def decide_registration(self, trainer_id, decision):
         if decision not in {"approved", "rejected"}:
-            raise ValueError("Odluka mora biti 'approved' ili 'rejected'.")
+            raise ValueError("Decision must be 'approved' or 'rejected'.")
 
         trainer = self.data.users.get(trainer_id)
         if trainer is None or trainer.role != "trainer":
@@ -76,8 +76,8 @@ class TrainerRepository:
         finally:
             connection.close()
 
-        # SQLite je kaskadno obrisao povezane redove. Ponovno povezivanje
-        # memorije ovde je jednostavnije i sigurnije od rucnog brisanja 14 lista.
+        # SQLite cascaded the delete to related rows. Reconnecting
+        # the in-memory data here is simpler and safer than manually clearing 14 collections.
         self.data.load_all()
         return True
 

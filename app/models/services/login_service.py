@@ -5,13 +5,13 @@ class LoginService:
     def login(self, username, password):
         username = username.strip()
         if not username or not password:
-            raise ValueError("Unesite korisnicko ime i lozinku.")
+            raise ValueError("Enter a username and password.")
 
         user = self.user_repository.authenticate(username, password)
         if user is None:
-            raise ValueError("Pogresno korisnicko ime ili lozinka.")
+            raise ValueError("Incorrect username or password.")
         if user.registration_status == "pending":
-            raise ValueError("Zahtev za registraciju jos ceka odobrenje administratora.")
+            raise ValueError("Your registration request is awaiting administrator approval.")
         if user.registration_status == "rejected":
-            raise ValueError("Zahtev za registraciju Vam je odbijen, nalog nije u funkciji.")
+            raise ValueError("Your registration request was rejected, so the account is unavailable.")
         return user

@@ -22,7 +22,7 @@ class AdminDashboardController:
         trainer_id = self.view.get_selected_existing_trainer_id()
         if trainer_id is None:
             self.view.show_error(
-                "Prvo izaberite odobrenog trenera iz tabele sa ocenama."
+                "Select an approved trainer from the ratings table first."
             )
             return
         try:
@@ -37,14 +37,14 @@ class AdminDashboardController:
         ):
             self.chat_controller.close()
         self.refresh()
-        self.view.show_info("Trener je uklonjen.")
+        self.view.show_info("Trainer removed.")
 
     def open_trainer_chat(self):
         trainer_id = self.view.get_selected_existing_trainer_id()
         trainer_name = self.view.get_selected_existing_trainer_name()
         if trainer_id is None:
             self.view.show_error(
-                "Prvo izaberite odobrenog trenera iz tabele sa ocenama."
+                "Select an approved trainer from the ratings table first."
             )
             return
 
@@ -71,7 +71,7 @@ class AdminDashboardController:
     def _decide_selected(self, decision):
         trainer_id = self.view.get_selected_trainer_id()
         if trainer_id is None:
-            self.view.show_error("Prvo izaberite zahtev trenera iz tabele.")
+            self.view.show_error("Select a trainer request from the table first.")
             return
         try:
             changed = self.admin_service.decide_trainer_registration(
@@ -81,8 +81,8 @@ class AdminDashboardController:
             self.view.show_error(str(error))
             return
         if not changed:
-            self.view.show_error("Zahtev vise nije na cekanju. Osvezite tabelu.")
+            self.view.show_error("The request is no longer pending. Refresh the table.")
             return
-        result = "odobren" if decision == "approved" else "odbijen"
-        self.view.show_info(f"Zahtev trenera je {result}.")
+        result = "approved" if decision == "approved" else "rejected"
+        self.view.show_info(f"Trainer request was {result}.")
         self.refresh()

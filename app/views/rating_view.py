@@ -19,11 +19,11 @@ class RatingView:
             font=ctk.CTkFont(size=20, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(20, 14))
 
-        ctk.CTkLabel(self.window, text="Ocena 1-5").pack(anchor="w", padx=22)
+        ctk.CTkLabel(self.window, text="Rating (1-5)").pack(anchor="w", padx=22)
         self.rating_entry = ctk.CTkEntry(self.window)
         self.rating_entry.pack(fill="x", padx=18, pady=(2, 10))
 
-        ctk.CTkLabel(self.window, text="Komentar").pack(anchor="w", padx=22)
+        ctk.CTkLabel(self.window, text="Comment").pack(anchor="w", padx=22)
         self.comment_entry = ctk.CTkEntry(self.window)
         self.comment_entry.pack(fill="x", padx=18, pady=(2, 10))
 
@@ -34,13 +34,13 @@ class RatingView:
         buttons.pack(fill="x", padx=18, pady=(8, 18))
         ctk.CTkButton(
             buttons,
-            text="Nazad",
+            text="Back",
             fg_color="#6b7280",
             command=self.on_close,
         ).pack(side="left")
         ctk.CTkButton(
             buttons,
-            text="Sacuvaj ocenu",
+            text="Save Rating",
             command=self.on_submit,
         ).pack(side="right")
 

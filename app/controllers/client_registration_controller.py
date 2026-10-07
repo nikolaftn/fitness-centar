@@ -12,4 +12,4 @@ class ClientRegistrationController:
         except ValueError as error:
             self.view.show_error(str(error))
             return
-        self.view.show_info("Registracija je uspesna. Mozete da se prijavite.")
+        self.view.show_info("Registration successful. You can now log in.")

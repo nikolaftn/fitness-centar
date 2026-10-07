@@ -15,7 +15,7 @@ from app.views.main_view import MainView
 
 
 class AppController:
-    """Povezuje Tkinter prikaz sa Model slojem."""
+    """Connects the Tkinter view to the model layer."""
 
     def __init__(self, application_data):
         self.application_data = application_data

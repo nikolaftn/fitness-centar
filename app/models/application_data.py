@@ -19,7 +19,7 @@ from app.models.domain.fitness_entities import (
 
 
 class ApplicationData:
-    """Svi objekti koje aplikacija drzi u memoriji tokom rada."""
+    """All objects the application keeps in memory while it runs."""
 
     def __init__(self, connection_factory=get_connection):
         self.connection_factory = connection_factory
@@ -43,7 +43,7 @@ class ApplicationData:
         self.messages = {}
 
     def load_all(self):
-        """Ucita sve tabele i odmah poveze strane kljuceve sa objektima."""
+        """Loads all tables and immediately connects foreign keys to objects."""
         connection = self.connection_factory()
         try:
             self.clear()

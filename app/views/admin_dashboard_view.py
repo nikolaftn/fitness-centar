@@ -3,7 +3,7 @@ from tkinter import ttk
 
 
 class AdminDashboardView:
-    """Administratorski prozor za obradu zahteva trenera."""
+    """Administrator window for reviewing trainer requests."""
 
     def __init__(self, parent, controller, user):
         self.controller = controller
@@ -19,7 +19,7 @@ class AdminDashboardView:
             text=f"Administrator: {user.full_name}",
             font=("Arial", 18, "bold"),
         ).pack(anchor="w")
-        tk.Label(header, text="Zahtevi za registraciju trenera").pack(anchor="w")
+        tk.Label(header, text="Trainer Registration Requests").pack(anchor="w")
 
         table_frame = tk.Frame(self.window, padx=24)
         table_frame.pack(fill="both", expand=True)
@@ -31,11 +31,11 @@ class AdminDashboardView:
             selectmode="browse",
         )
         headings = {
-            "username": "Korisnicko ime",
-            "name": "Ime i prezime",
-            "education": "Obrazovanje",
-            "experience": "Iskustvo",
-            "price": "Cena treninga",
+            "username": "Username",
+            "name": "Full Name",
+            "education": "Education",
+            "experience": "Experience",
+            "price": "Session Price",
         }
         widths = {
             "username": 130,
@@ -57,7 +57,7 @@ class AdminDashboardView:
 
         tk.Label(
             self.window,
-            text="Treneri sortirani po prosecnoj oceni",
+            text="Trainers Sorted by Average Rating",
             font=("Arial", 12, "bold"),
             padx=24,
             anchor="w",
@@ -73,11 +73,11 @@ class AdminDashboardView:
             height=5,
         )
         rating_headings = {
-            "name": "Ime i prezime",
-            "username": "Korisnicko ime",
-            "education": "Obrazovanje",
-            "average": "Prosecna ocena",
-            "count": "Broj ocena",
+            "name": "Full Name",
+            "username": "Username",
+            "education": "Education",
+            "average": "Average Rating",
+            "count": "Number of Ratings",
         }
         for column in rating_columns:
             self.ratings_table.heading(column, text=rating_headings[column])
@@ -91,7 +91,7 @@ class AdminDashboardView:
 
         tk.Label(
             self.window,
-            text="Mesecni zakup fitnes centra",
+            text="Monthly Fitness Center Rent",
             font=("Arial", 12, "bold"),
             padx=24,
             anchor="w",
@@ -113,11 +113,11 @@ class AdminDashboardView:
             height=5,
         )
         rent_headings = {
-            "name": "Trener",
-            "username": "Korisnicko ime",
-            "amount": "Iznos",
-            "paid_at": "Datum uplate",
-            "valid_until": "Vazi do",
+            "name": "Trainer",
+            "username": "Username",
+            "amount": "Amount",
+            "paid_at": "Payment Date",
+            "valid_until": "Valid Until",
             "status": "Status",
         }
         rent_widths = {
@@ -147,26 +147,26 @@ class AdminDashboardView:
         buttons = tk.Frame(self.window, padx=24, pady=18)
         buttons.pack(fill="x")
         tk.Button(
-            buttons, text="Odobri", width=16, command=self.controller.approve_selected
+            buttons, text="Approve", width=16, command=self.controller.approve_selected
         ).pack(side="left", padx=(0, 8))
         tk.Button(
-            buttons, text="Odbij", width=16, command=self.controller.reject_selected
+            buttons, text="Reject", width=16, command=self.controller.reject_selected
         ).pack(side="left", padx=8)
         tk.Button(
             buttons,
-            text="Ukloni trenera",
+            text="Remove Trainer",
             width=16,
             fg="firebrick",
             command=self.controller.delete_selected_trainer,
         ).pack(side="left", padx=8)
         tk.Button(
             buttons,
-            text="Otvori chat",
+            text="Open Chat",
             width=16,
             command=self.controller.open_trainer_chat,
         ).pack(side="left", padx=8)
         tk.Button(
-            buttons, text="Osvezi", width=16, command=self.controller.refresh
+            buttons, text="Refresh", width=16, command=self.controller.refresh
         ).pack(side="right")
 
     def show_registrations(self, registrations):
@@ -198,16 +198,16 @@ class AdminDashboardView:
                     trainer.full_name,
                     trainer.username,
                     trainer.education or "",
-                    average_rating or "Nema",
+                    average_rating or "None",
                     rating_count,
                 ),
             )
 
     def show_center_rents(self, payments):
         status_text = {
-            "active": "Placeno",
-            "expired": "Isteklo",
-            "unpaid": "Nije placeno",
+            "active": "Paid",
+            "expired": "Expired",
+            "unpaid": "Unpaid",
         }
         for item in self.rents_table.get_children():
             self.rents_table.delete(item)

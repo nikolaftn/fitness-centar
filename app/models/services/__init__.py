@@ -1,2 +1,2 @@
-"""Poslovna pravila aplikacije."""
+"""Application business rules."""
 

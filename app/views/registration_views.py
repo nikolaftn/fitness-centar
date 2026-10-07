@@ -2,19 +2,19 @@ import customtkinter as ctk
 
 
 COMMON_FIELDS = (
-    ("username", "Korisnicko ime", False),
-    ("password", "Lozinka", True),
-    ("password_confirmation", "Potvrda lozinke", True),
-    ("first_name", "Ime", False),
-    ("last_name", "Prezime", False),
-    ("birth_date", "Datum rodjenja (GGGG-MM-DD)", False),
+    ("username", "Username", False),
+    ("password", "Password", True),
+    ("password_confirmation", "Confirm password", True),
+    ("first_name", "First name", False),
+    ("last_name", "Last name", False),
+    ("birth_date", "Date of birth (YYYY-MM-DD)", False),
 )
 
 
 class BaseRegistrationView:
-    """Zajednicki izgled prozora za registraciju."""
+    """Shared layout for registration windows."""
 
-    title = "Registracija"
+    title = "Registration"
     additional_fields = ()
 
     def __init__(self, parent, controller):
@@ -60,12 +60,12 @@ class BaseRegistrationView:
 
 
 class ClientRegistrationView(BaseRegistrationView):
-    title = "Registracija klijenta"
+    title = "Client Registration"
 
 class TrainerRegistrationView(BaseRegistrationView):
-    title = "Zahtev za registraciju trenera"
+    title = "Trainer Registration Request"
     additional_fields = (
-        ("education", "Obrazovanje", False),
-        ("years_of_experience", "Godine iskustva", False),
-        ("price_per_training", "Cena pojedinacnog treninga", False),
+        ("education", "Education", False),
+        ("years_of_experience", "Years of experience", False),
+        ("price_per_training", "Price per session", False),
     )

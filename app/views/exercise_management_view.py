@@ -7,7 +7,7 @@ class ExerciseManagementView:
     def __init__(self, parent, controller):
         self.controller = controller
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Upravljanje vezbama")
+        self.window.title("Exercise Management")
         self.window.geometry("980x650")
         self.window.minsize(820, 560)
         self.window.transient(parent)
@@ -18,13 +18,13 @@ class ExerciseManagementView:
         header.pack(fill="x", padx=18, pady=(16, 8))
         ctk.CTkButton(
             header,
-            text="Nazad",
+            text="Back",
             width=90,
             command=self.controller.close_exercise_management,
         ).pack(side="left")
         ctk.CTkLabel(
             header,
-            text="Vezbe u sistemu",
+            text="Exercises in the System",
             font=ctk.CTkFont(size=20, weight="bold"),
         ).pack(side="left", padx=18)
 
@@ -39,16 +39,16 @@ class ExerciseManagementView:
         form = ctk.CTkFrame(content)
         form.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         self.exercise_id = None
-        self.name_entry = self._entry(form, "Naziv")
-        self.description_entry = self._entry(form, "Opis")
-        self.duration_entry = self._entry(form, "Trajanje u minutima")
+        self.name_entry = self._entry(form, "Name")
+        self.description_entry = self._entry(form, "Description")
+        self.duration_entry = self._entry(form, "Duration (minutes)")
 
-        ctk.CTkLabel(form, text="Oprema").pack(anchor="w", padx=14)
-        self.equipment_variable = ctk.StringVar(value="Bez opreme")
+        ctk.CTkLabel(form, text="Equipment").pack(anchor="w", padx=14)
+        self.equipment_variable = ctk.StringVar(value="No equipment")
         self.equipment_menu = ctk.CTkOptionMenu(
             form,
             variable=self.equipment_variable,
-            values=["Bez opreme"],
+            values=["No equipment"],
         )
         self.equipment_menu.pack(fill="x", padx=12, pady=(2, 12))
 
@@ -57,18 +57,18 @@ class ExerciseManagementView:
 
         ctk.CTkButton(
             form,
-            text="Nova vezba",
+            text="New Exercise",
             fg_color="#6b7280",
             command=self.clear_form,
         ).pack(fill="x", padx=12, pady=5)
         ctk.CTkButton(
             form,
-            text="Sacuvaj vezbu",
+            text="Save Exercise",
             command=self.controller.save_exercise,
         ).pack(fill="x", padx=12, pady=5)
         ctk.CTkButton(
             form,
-            text="Obrisi vezbu",
+            text="Delete Exercise",
             fg_color="#b91c1c",
             command=self.controller.delete_exercise,
         ).pack(fill="x", padx=12, pady=5)
@@ -85,7 +85,7 @@ class ExerciseManagementView:
         return (
             f"{exercise.name}\n"
             f"{exercise.duration_minutes or '-'} min | "
-            f"oprema: {exercise.equipment_name or 'bez opreme'}"
+            f"Equipment: {exercise.equipment_name or 'no equipment'}"
         )
 
     def show_exercises(self, exercises):
@@ -97,11 +97,11 @@ class ExerciseManagementView:
         )
 
     def show_equipment(self, equipment):
-        values = ["Bez opreme"]
+        values = ["No equipment"]
         values.extend(f"{item.id} | {item.name}" for item in equipment)
         self.equipment_menu.configure(values=values)
         if self.equipment_variable.get() not in values:
-            self.equipment_variable.set("Bez opreme")
+            self.equipment_variable.set("No equipment")
 
     def _load_exercise(self, exercise):
         self.clear_form()
@@ -119,12 +119,12 @@ class ExerciseManagementView:
         self.name_entry.delete(0, "end")
         self.description_entry.delete(0, "end")
         self.duration_entry.delete(0, "end")
-        self.equipment_variable.set("Bez opreme")
+        self.equipment_variable.set("No equipment")
 
     def get_exercise_data(self):
         equipment = self.equipment_variable.get()
         equipment_id = None
-        if equipment != "Bez opreme":
+        if equipment != "No equipment":
             equipment_id = int(equipment.split(" | ", 1)[0])
         return {
             "id": self.exercise_id,

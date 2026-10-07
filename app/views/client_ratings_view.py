@@ -4,7 +4,7 @@ import customtkinter as ctk
 class ClientRatingsView:
     def __init__(self, parent, client_name, ratings):
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Ocene klijenta")
+        self.window.title("Client Ratings")
         self.window.geometry("620x480")
         self.window.minsize(500, 380)
         self.window.transient(parent)
@@ -14,13 +14,13 @@ class ClientRatingsView:
         header.pack(fill="x", padx=18, pady=(16, 8))
         ctk.CTkButton(
             header,
-            text="Nazad",
+            text="Back",
             width=90,
             command=self.close,
         ).pack(side="left")
         ctk.CTkLabel(
             header,
-            text=f"Ocene za: {client_name}",
+            text=f"Ratings for: {client_name}",
             font=ctk.CTkFont(size=20, weight="bold"),
         ).pack(side="left", padx=18)
 
@@ -28,7 +28,7 @@ class ClientRatingsView:
         content.pack(fill="both", expand=True, padx=18, pady=(8, 18))
 
         if not ratings:
-            ctk.CTkLabel(content, text="Klijent jos nema ocene trenera.").pack(
+            ctk.CTkLabel(content, text="This client has no trainer ratings yet.").pack(
                 anchor="w", padx=10, pady=10
             )
             return
@@ -38,12 +38,12 @@ class ClientRatingsView:
             card.pack(fill="x", padx=6, pady=6)
             ctk.CTkLabel(
                 card,
-                text=f"Ocena: {rating.rating} | Trener: {rating.trainer.full_name}",
+                text=f"Rating: {rating.rating} | Trainer: {rating.trainer.full_name}",
                 font=ctk.CTkFont(weight="bold"),
             ).pack(anchor="w", padx=12, pady=(10, 3))
             ctk.CTkLabel(
                 card,
-                text=rating.comment or "Bez komentara",
+                text=rating.comment or "No comment",
                 justify="left",
                 anchor="w",
                 wraplength=520,
@@ -64,7 +64,7 @@ class ClientRatingView:
     def __init__(self, parent, controller, client_name):
         self.controller = controller
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Oceni klijenta")
+        self.window.title("Rate Client")
         self.window.geometry("520x330")
         self.window.transient(parent)
         self.window.grab_set()
@@ -72,15 +72,15 @@ class ClientRatingView:
 
         ctk.CTkLabel(
             self.window,
-            text=f"Ocena za: {client_name}",
+            text=f"Rating for: {client_name}",
             font=ctk.CTkFont(size=20, weight="bold"),
         ).pack(anchor="w", padx=22, pady=(20, 14))
 
-        ctk.CTkLabel(self.window, text="Ocena 1-5").pack(anchor="w", padx=22)
+        ctk.CTkLabel(self.window, text="Rating (1-5)").pack(anchor="w", padx=22)
         self.rating_entry = ctk.CTkEntry(self.window)
         self.rating_entry.pack(fill="x", padx=18, pady=(2, 10))
 
-        ctk.CTkLabel(self.window, text="Komentar koji vide treneri").pack(
+        ctk.CTkLabel(self.window, text="Comment visible to trainers").pack(
             anchor="w", padx=22
         )
         self.comment_entry = ctk.CTkEntry(self.window)
@@ -93,13 +93,13 @@ class ClientRatingView:
         buttons.pack(fill="x", padx=18, pady=(8, 18))
         ctk.CTkButton(
             buttons,
-            text="Nazad",
+            text="Back",
             fg_color="#6b7280",
             command=self.controller.close_client_rating,
         ).pack(side="left")
         ctk.CTkButton(
             buttons,
-            text="Sacuvaj ocenu",
+            text="Save Rating",
             command=self.controller.submit_client_rating,
         ).pack(side="right")
 

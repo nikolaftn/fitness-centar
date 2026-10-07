@@ -18,7 +18,7 @@ class ChatView:
         header.pack(fill="x", padx=18, pady=(16, 8))
         ctk.CTkButton(
             header,
-            text="Nazad",
+            text="Back",
             width=90,
             command=self.controller.close,
         ).pack(side="left")
@@ -29,7 +29,7 @@ class ChatView:
         ).pack(side="left", padx=18)
         ctk.CTkButton(
             header,
-            text="Osvezi",
+            text="Refresh",
             width=90,
             command=self.controller.refresh,
         ).pack(side="right")
@@ -49,13 +49,13 @@ class ChatView:
         input_frame.pack(fill="x", padx=18, pady=(8, 18))
         self.message_entry = ctk.CTkEntry(
             input_frame,
-            placeholder_text="Napisite poruku...",
+            placeholder_text="Write a message...",
         )
         self.message_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self.message_entry.bind("<Return>", self.controller.send_message)
         ctk.CTkButton(
             input_frame,
-            text="Posalji",
+            text="Send",
             width=100,
             command=self.controller.send_message,
         ).pack(side="right")
@@ -73,7 +73,7 @@ class ChatView:
 
             sender = "Vi" if own_message else message.sender.username
             if special_message:
-                sender = f"{sender} - poslata ocena"
+                sender = f"{sender} - rating submitted"
             bubble = ctk.CTkLabel(
                 row,
                 text=f"{sender}\n{message.text}\n{message.created_at}",

@@ -5,7 +5,7 @@ class TrainerProfileView:
     def __init__(self, parent, controller, profile):
         self.controller = controller
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Profil trenera")
+        self.window.title("Trainer Profile")
         self.window.geometry("650x650")
         self.window.minsize(540, 560)
         self.window.transient(parent)
@@ -16,26 +16,26 @@ class TrainerProfileView:
         header.pack(fill="x", padx=18, pady=(16, 8))
         ctk.CTkButton(
             header,
-            text="Nazad",
+            text="Back",
             width=90,
             command=self.controller.close_profile,
         ).pack(side="left")
         ctk.CTkLabel(
             header,
-            text="Moj profil",
+            text="My Profile",
             font=ctk.CTkFont(size=20, weight="bold"),
         ).pack(side="left", padx=18)
 
         self.entries = {}
         fields = [
-            ("first_name", "Ime"),
-            ("last_name", "Prezime"),
-            ("birth_date", "Datum rodjenja GGGG-MM-DD"),
-            ("education", "Skolovanje"),
-            ("diploma_license", "Diploma ili licenca"),
-            ("biography", "Biografija i dodatni podaci"),
-            ("years_of_experience", "Godine iskustva"),
-            ("price_per_training", "Cena jednog treninga"),
+            ("first_name", "First name"),
+            ("last_name", "Last name"),
+            ("birth_date", "Date of birth YYYY-MM-DD"),
+            ("education", "Education"),
+            ("diploma_license", "Diploma or license"),
+            ("biography", "Biography and additional details"),
+            ("years_of_experience", "Years of experience"),
+            ("price_per_training", "Price per session"),
         ]
         for key, label in fields:
             ctk.CTkLabel(self.window, text=label).pack(anchor="w", padx=22)
@@ -49,7 +49,7 @@ class TrainerProfileView:
         self.message_label.pack(fill="x", padx=22)
         ctk.CTkButton(
             self.window,
-            text="Sacuvaj profil",
+            text="Save profile",
             command=self.controller.save_profile,
         ).pack(fill="x", padx=18, pady=(8, 18))
 

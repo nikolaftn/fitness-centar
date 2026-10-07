@@ -12,4 +12,4 @@ class TrainerRegistrationController:
         except ValueError as error:
             self.view.show_error(str(error))
             return
-        self.view.show_info("Zahtev je poslat i ceka odobrenje administratora.")
+        self.view.show_info("Your request has been sent and is awaiting administrator approval.")

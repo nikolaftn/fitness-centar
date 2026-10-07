@@ -3,36 +3,36 @@ from datetime import date
 
 def validate_common_registration(data):
     labels = {
-        "username": "Korisnicko ime",
-        "password": "Lozinka",
-        "password_confirmation": "Potvrda lozinke",
-        "first_name": "Ime",
-        "last_name": "Prezime",
-        "birth_date": "Datum rodjenja",
+        "username": "Username",
+        "password": "Password",
+        "password_confirmation": "Confirm password",
+        "first_name": "First name",
+        "last_name": "Last name",
+        "birth_date": "Date of birth",
     }
     for field, label in labels.items():
         if not data.get(field, "").strip():
-            return f"Polje '{label}' je obavezno."
+            return f"The '{label}' field is required."
 
     username = data["username"].strip()
     if len(username) < 3 or any(character.isspace() for character in username):
-        return "Korisnicko ime mora imati najmanje 3 znaka i ne sme sadrzati razmake."
+        return "Username must contain at least 3 characters and no spaces."
     if len(data["password"]) < 6:
-        return "Lozinka mora imati najmanje 6 znakova."
+        return "Password must contain at least 6 characters."
     if data["password"] != data["password_confirmation"]:
-        return "Lozinka i potvrda lozinke se ne podudaraju."
+        return "Password and confirmation do not match."
     return validate_profile_data(data)
 
 
 def validate_profile_data(data):
     if not data["first_name"].strip() or not data["last_name"].strip():
-        return "Ime i prezime su obavezni."
+        return "First and last name are required."
     try:
         birth_date = date.fromisoformat(data["birth_date"].strip())
     except ValueError:
-        return "Datum rodjenja mora biti u formatu GGGG-MM-DD."
+        return "Date of birth must use the YYYY-MM-DD format."
     if birth_date > date.today():
-        return "Datum rodjenja ne moze biti u buducnosti."
+        return "Date of birth cannot be in the future."
     return None
 
 
@@ -40,9 +40,9 @@ def parse_rating(value):
     try:
         rating = int(value)
     except ValueError as error:
-        raise ValueError("Ocena mora biti ceo broj od 1 do 5.") from error
+        raise ValueError("Rating must be a whole number from 1 to 5.") from error
     if not 1 <= rating <= 5:
-        raise ValueError("Ocena mora biti od 1 do 5.")
+        raise ValueError("Rating must be from 1 to 5.")
     return rating
 
 
@@ -52,11 +52,11 @@ def parse_client_request(data):
         height = float(data["height_cm"].replace(",", "."))
         weight = float(data["weight_kg"].replace(",", "."))
     except ValueError as error:
-        raise ValueError("Broj treninga, visina i tezina moraju biti brojevi.") from error
+        raise ValueError("Workouts per week, height, and weight must be numbers.") from error
     if not 1 <= workouts <= 7:
-        raise ValueError("Broj treninga mora biti od 1 do 7.")
+        raise ValueError("Workouts per week must be from 1 to 7.")
     if data["training_location"] not in {"gym", "home", "both"}:
-        raise ValueError("Lokacija mora biti gym, home ili both.")
+        raise ValueError("Location must be gym, home, or both.")
     return {
         "workouts_per_week": workouts,
         "goals": data["goals"],

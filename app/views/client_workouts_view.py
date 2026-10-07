@@ -11,7 +11,7 @@ class ClientWorkoutsView:
         self.selected_workout = None
 
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Moji treninzi")
+        self.window.title("My Workouts")
         self.window.geometry("1050x650")
         self.window.minsize(880, 540)
         self.window.transient(parent)
@@ -22,13 +22,13 @@ class ClientWorkoutsView:
         header.pack(fill="x", padx=18, pady=(16, 8))
         ctk.CTkButton(
             header,
-            text="Nazad",
+            text="Back",
             width=90,
             command=self.controller.close_workouts,
         ).pack(side="left")
         ctk.CTkLabel(
             header,
-            text=f"Treninzi kod trenera: {trainer_name}",
+            text=f"Workouts with trainer: {trainer_name}",
             font=ctk.CTkFont(size=20, weight="bold"),
         ).pack(side="left", padx=18)
 
@@ -41,7 +41,7 @@ class ClientWorkoutsView:
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
         ctk.CTkLabel(
             left,
-            text="Dodeljeni treninzi",
+            text="Assigned Workouts",
             font=ctk.CTkFont(size=16, weight="bold"),
         ).pack(anchor="w", padx=12, pady=(12, 6))
         self.workouts_list = ListPanel(left)
@@ -51,7 +51,7 @@ class ClientWorkoutsView:
         right.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         self.workout_title = ctk.CTkLabel(
             right,
-            text="Izaberite trening.",
+            text="Select a workout.",
             font=ctk.CTkFont(size=16, weight="bold"),
         )
         self.workout_title.pack(anchor="w", padx=12, pady=(12, 6))
@@ -59,7 +59,7 @@ class ClientWorkoutsView:
         self.exercises_frame.pack(fill="both", expand=True, padx=12, pady=(0, 8))
         self.rate_workout_button = ctk.CTkButton(
             right,
-            text="Zavrsi i oceni trening",
+            text="Complete and Rate Workout",
             state="disabled",
             command=self.controller.open_workout_rating,
         )
@@ -73,8 +73,8 @@ class ClientWorkoutsView:
         rating_value = rating.rating if rating else None
         return (
             f"{workout.name}\n"
-            f"Rok: {workout.scheduled_date} | Status: {workout.status} | "
-            f"Ocena: {rating_value or '-'}"
+            f"Deadline: {workout.scheduled_date} | Status: {workout.status} | "
+            f"Rating: {rating_value or '-'}"
         )
 
     def show_workouts(self, rows):
@@ -94,7 +94,7 @@ class ClientWorkoutsView:
     def _select_workout(self, workout):
         self.selected_workout = workout
         self.workout_title.configure(
-            text=f"{workout.name} | Rok: {workout.scheduled_date} | {workout.status}"
+            text=f"{workout.name} | Deadline: {workout.scheduled_date} | {workout.status}"
         )
         self.controller.load_workout_exercises(workout)
 
@@ -131,10 +131,10 @@ class ClientWorkoutsView:
                 card,
                 text=(
                     f"{exercise.exercise_order}. {exercise.name}\n"
-                    f"Serije: {exercise.sets} | "
-                    f"Ponavljanja: {exercise.repetitions} | "
-                    f"Trajanje: {exercise.duration_minutes} min\n"
-                    f"Oprema: {exercise.equipment_name or 'bez opreme'}"
+                    f"Sets: {exercise.sets} | "
+                    f"Repetitions: {exercise.repetitions} | "
+                    f"Duration: {exercise.duration_minutes} min\n"
+                    f"Equipment: {exercise.equipment_name or 'no equipment'}"
                 ),
                 variable=completed,
                 command=lambda exercise_id=exercise.id, variable=completed: (
@@ -147,7 +147,7 @@ class ClientWorkoutsView:
 
             rating_button = ctk.CTkButton(
                 card,
-                text=f"Oceni ({rating_value or '-'})",
+                text=f"Rate ({rating_value or '-'})",
                 width=110,
                 command=lambda current=exercise: self.controller.open_exercise_rating(
                     current
@@ -160,15 +160,15 @@ class ClientWorkoutsView:
         if not exercises:
             ctk.CTkLabel(
                 self.exercises_frame,
-                text="Ovaj trening nema vezbe.",
+                text="This workout has no exercises.",
             ).pack(anchor="w", padx=10, pady=10)
 
         self.rate_workout_button.configure(
             state="normal" if can_rate else "disabled",
             text=(
-                "Azuriraj ocenu treninga"
+                "Update Workout Rating"
                 if workout and workout.status == "completed"
-                else "Zavrsi i oceni trening"
+                else "Complete and Rate Workout"
             ),
         )
 

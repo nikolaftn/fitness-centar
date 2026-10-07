@@ -6,7 +6,7 @@ ctk.set_default_color_theme("blue")
 
 
 class MainView:
-    """Pocetni CustomTkinter prozor aplikacije."""
+    """Main CustomTkinter application window."""
 
     def __init__(self, controller):
         self.controller = controller
@@ -30,21 +30,21 @@ class MainView:
 
         ctk.CTkButton(
             buttons_frame,
-            text="Prijava",
+            text="Login",
             width=300,
             command=self.controller.open_login,
         ).pack(fill="x", padx=22, pady=8)
 
         ctk.CTkButton(
             buttons_frame,
-            text="Registracija klijenta",
+            text="Client Registration",
             width=300,
             command=self.controller.open_client_registration,
         ).pack(fill="x", padx=22, pady=8)
 
         ctk.CTkButton(
             buttons_frame,
-            text="Zahtev za registraciju trenera",
+            text="Trainer Registration Request",
             width=300,
             command=self.controller.open_trainer_registration,
         ).pack(fill="x", padx=22, pady=8)

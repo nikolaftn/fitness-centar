@@ -12,12 +12,12 @@ class AdminService:
 
     def decide_trainer_registration(self, trainer_id, decision):
         if decision not in {"approved", "rejected"}:
-            raise ValueError("Neispravna odluka.")
+            raise ValueError("Invalid decision.")
         return self.trainer_repository.decide_registration(trainer_id, decision)
 
     def delete_trainer(self, trainer_id):
         if not self.trainer_repository.delete_trainer(trainer_id):
-            raise ValueError("Trener ne postoji ili vise nije odobren.")
+            raise ValueError("The trainer does not exist or is no longer approved.")
 
     def get_messages(self, admin_id, trainer_id):
         self._validate_trainer(trainer_id)
@@ -27,10 +27,10 @@ class AdminService:
         self._validate_trainer(trainer_id)
         text = text.strip()
         if not text:
-            raise ValueError("Poruka ne moze biti prazna.")
+            raise ValueError("A message cannot be empty.")
         self.fitness_repository.send_message(admin_id, trainer_id, text)
 
     def _validate_trainer(self, trainer_id):
         if not self.trainer_repository.is_approved_trainer(trainer_id):
-            raise ValueError("Izabrani trener ne postoji ili vise nije odobren.")
+            raise ValueError("The selected trainer does not exist or is no longer approved.")
 

@@ -20,7 +20,7 @@ from app.models.domain.fitness_entities import (
 
 
 class FitnessRepository:
-    """Cita objekte iz memorije, a svaku izmenu odmah cuva u SQLite bazi."""
+    """Reads objects from memory and immediately saves each change to SQLite."""
 
     CENTER_RENT_AMOUNT = 30000.0
 
@@ -28,7 +28,7 @@ class FitnessRepository:
         self.data = application_data
         self.connection_factory = connection_factory
 
-    # ------------------------- TRENERI I ODNOSI -------------------------
+    # ------------------------- TRAINERS AND RELATIONSHIPS -------------------------
     def list_available_trainers(self, client_id):
         trainers = []
         for profile in self.data.trainer_profiles.values():
@@ -53,7 +53,7 @@ class FitnessRepository:
     def update_trainer_profile(self, trainer_id, values):
         profile = self.data.trainer_profiles.get(trainer_id)
         if profile is None:
-            raise ValueError("Profil trenera nije pronadjen.")
+            raise ValueError("Trainer profile not found.")
 
         connection = self.connection_factory()
         try:
@@ -134,14 +134,14 @@ class FitnessRepository:
         trainer = self.data.users.get(trainer_id)
         client = self.data.users.get(client_id)
         if trainer is None or client is None:
-            raise ValueError("Trener ili klijent nije pronadjen.")
+            raise ValueError("Trainer or client not found.")
 
         key = (trainer_id, client_id)
         relation = self.data.trainer_client_relations.get(key)
         if relation and relation.status == "pending":
-            raise ValueError("Zahtev ovom treneru je vec poslat.")
+            raise ValueError("A request to this trainer has already been sent.")
         if relation and relation.status == "accepted":
-            raise ValueError("Vec imate prihvacen odnos sa ovim trenerom.")
+            raise ValueError("You already have an accepted relationship with this trainer.")
 
         connection = self.connection_factory()
         try:
@@ -226,7 +226,7 @@ class FitnessRepository:
 
     def decide_client_request(self, trainer_id, client_id, status):
         if status not in {"accepted", "rejected"}:
-            raise ValueError("Neispravan status.")
+            raise ValueError("Invalid status.")
 
         relation = self.data.trainer_client_relations.get((trainer_id, client_id))
         if relation is None or relation.status != "pending":
@@ -267,7 +267,7 @@ class FitnessRepository:
 
         return sorted(clients, key=self._accepted_client_sort_key)
 
-    # ------------------------------ VEZBE ------------------------------
+    # ------------------------------ EXERCISES ------------------------------
     def list_exercises(self, trainer_id):
         exercises = []
         for exercise in self.data.exercises.values():
@@ -286,14 +286,14 @@ class FitnessRepository:
     ):
         trainer = self.data.users.get(trainer_id)
         if trainer is None or trainer.role != "trainer":
-            raise ValueError("Trener nije pronadjen.")
+            raise ValueError("Trainer not found.")
 
         equipment = self.data.equipment.get(equipment_id)
         exercise = None
         if exercise_id is not None:
             exercise = self.data.exercises.get((trainer_id, exercise_id))
             if exercise is None:
-                raise ValueError("Vezba ovog trenera nije pronadjena.")
+                raise ValueError("This trainer's exercise was not found.")
         else:
             exercise_id = self._next_exercise_id(trainer_id)
 
@@ -361,7 +361,7 @@ class FitnessRepository:
     def delete_exercise(self, trainer_id, exercise_id):
         exercise = self.data.exercises.get((trainer_id, exercise_id))
         if exercise is None:
-            raise ValueError("Vezba ovog trenera nije pronadjena.")
+            raise ValueError("This trainer's exercise was not found.")
 
         connection = self.connection_factory()
         try:
@@ -387,7 +387,7 @@ class FitnessRepository:
 
         self.data.exercises.pop((trainer_id, exercise_id), None)
 
-    # ------------------------------ OPREMA ------------------------------
+    # ------------------------------ EQUIPMENT ------------------------------
     def list_equipment(self):
         return sorted(self.data.equipment.values(), key=self._object_name)
 
@@ -440,7 +440,7 @@ class FitnessRepository:
             if exercise.equipment is equipment:
                 exercise.equipment = None
 
-    # ------------------------------ TRENINZI ----------------------------
+    # ------------------------------ WORKOUTS ----------------------------
     def mark_overdue_workouts(self):
         today = date.today()
         changed_workouts = []
@@ -491,14 +491,14 @@ class FitnessRepository:
     ):
         relation = self.data.trainer_client_relations.get((trainer_id, client_id))
         if relation is None:
-            raise ValueError("Odnos trenera i klijenta nije pronadjen.")
+            raise ValueError("Trainer-client relationship not found.")
 
         selected_assignments = []
         for assignment in exercise_assignments:
             exercise_id = assignment["exercise_id"]
             exercise = self.data.exercises.get((trainer_id, exercise_id))
             if exercise is None:
-                raise ValueError("Izabrana vezba ne pripada ovom treneru.")
+                raise ValueError("The selected exercise does not belong to this trainer.")
             selected_assignments.append((exercise, assignment))
 
         connection = self.connection_factory()
@@ -591,7 +591,7 @@ class FitnessRepository:
     ):
         item = self.data.workout_exercises.get((workout_id, exercise_id))
         if item is None or item.workout.client.id != client_id:
-            raise ValueError("Vezba nije pronadjena u ovom treningu.")
+            raise ValueError("Exercise not found in this workout.")
 
         completed_at = None
         if completed:
@@ -628,15 +628,15 @@ class FitnessRepository:
     def rate_workout(self, workout_id, client_id, rating_value, comment):
         workout = self.get_client_workout(workout_id, client_id)
         if workout is None:
-            raise ValueError("Trening nije pronadjen.")
+            raise ValueError("Workout not found.")
 
         created_at = self._current_time()
         key = (workout_id, client_id)
         message_text = (
-            "OCENA TRENINGA\n"
-            f"Trening: {workout.name}\n"
-            f"Ocena: {rating_value}/5\n"
-            f"Komentar: {comment or 'Bez komentara.'}"
+            "WORKOUT RATING\n"
+            f"Workout: {workout.name}\n"
+            f"Rating: {rating_value}/5\n"
+            f"Comment: {comment or 'No comment.'}"
         )
         rating_key = f"workout_rating:{workout_id}:{client_id}"
         existing_message = self._find_message_by_rating_key(rating_key)
@@ -699,7 +699,7 @@ class FitnessRepository:
     def rate_trainer(self, trainer_id, client_id, rating_value, comment):
         relation = self.data.trainer_client_relations.get((trainer_id, client_id))
         if relation is None or relation.status != "accepted" or not relation.is_paid:
-            raise ValueError("Mozete oceniti samo trenera sa aktivnom clanarinom.")
+            raise ValueError("You can only rate a trainer with an active membership.")
 
         created_at = self._current_time()
         connection = self.connection_factory()
@@ -739,16 +739,16 @@ class FitnessRepository:
     ):
         item = self.data.workout_exercises.get((workout_id, exercise_id))
         if item is None or item.workout.client.id != client_id:
-            raise ValueError("Vezba nije pronadjena u ovom treningu.")
+            raise ValueError("Exercise not found in this workout.")
 
         created_at = self._current_time()
         key = (workout_id, exercise_id, client_id)
         message_text = (
-            "OCENA VEZBE\n"
-            f"Trening: {item.workout.name}\n"
-            f"Vezba: {item.exercise.name}\n"
-            f"Ocena: {rating_value}/5\n"
-            f"Komentar: {comment or 'Bez komentara.'}"
+            "EXERCISE RATING\n"
+            f"Workout: {item.workout.name}\n"
+            f"Exercise: {item.exercise.name}\n"
+            f"Rating: {rating_value}/5\n"
+            f"Comment: {comment or 'No comment.'}"
         )
         rating_key = f"exercise_rating:{workout_id}:{exercise_id}:{client_id}"
         existing_message = self._find_message_by_rating_key(rating_key)
@@ -811,12 +811,12 @@ class FitnessRepository:
             created_at,
         )
 
-    # --------------------- INTERNE OCENE KLIJENATA ----------------------
+    # --------------------- INTERNAL CLIENT RATINGS ----------------------
     def save_client_rating(self, trainer_id, client_id, rating_value, comment):
         trainer = self.data.users.get(trainer_id)
         client = self.data.users.get(client_id)
         if trainer is None or client is None:
-            raise ValueError("Trener ili klijent nije pronadjen.")
+            raise ValueError("Trainer or client not found.")
 
         created_at = self._current_time()
         connection = self.connection_factory()
@@ -854,7 +854,7 @@ class FitnessRepository:
                 ratings.append(rating)
         return sorted(ratings, key=self._created_at, reverse=True)
 
-    # ----------------------- PLACANJA I PORUKE -------------------------
+    # ----------------------- PAYMENTS AND MESSAGES -----------------------
     def sync_membership_statuses(self):
         changed_relations = []
         for relation in self.data.trainer_client_relations.values():
@@ -886,12 +886,12 @@ class FitnessRepository:
     def pay_monthly_subscription(self, trainer_id, client_id):
         relation = self.data.trainer_client_relations.get((trainer_id, client_id))
         if relation is None or relation.status != "accepted":
-            raise ValueError("Nemate prihvacen odnos sa trenerom.")
+            raise ValueError("You do not have an accepted relationship with this trainer.")
 
         active_payment = self._active_payment(relation, check_relation=False)
         if active_payment:
             raise ValueError(
-                f"Clanarina vec vazi do {active_payment.valid_until}."
+                f"Membership is already valid until {active_payment.valid_until}."
             )
 
         paid_at = datetime.now()
@@ -954,12 +954,12 @@ class FitnessRepository:
             active_payment.paid_at, active_payment.valid_until
         ):
             raise ValueError(
-                f"Zakup centra vec vazi do {active_payment.valid_until}."
+                f"Center rent is already valid until {active_payment.valid_until}."
             )
 
         trainer = self.data.users.get(trainer_id)
         if trainer is None:
-            raise ValueError("Trener nije pronadjen.")
+            raise ValueError("Trainer not found.")
 
         paid_at = datetime.now()
         valid_until = self._add_one_month(paid_at)
@@ -1010,13 +1010,13 @@ class FitnessRepository:
             if valid_until <= now:
                 notification_type = "expired"
                 message_text = (
-                    f"Clanarina kod trenera {payment.trainer.full_name} je istekla "
+                    f"Membership with trainer {payment.trainer.full_name} expired on "
                     f"{payment.valid_until}."
                 )
             elif valid_until.date() <= (now + timedelta(days=3)).date():
                 notification_type = "expiring"
                 message_text = (
-                    f"Clanarina kod trenera {payment.trainer.full_name} istice "
+                    f"Membership with trainer {payment.trainer.full_name} expires "
                     f"{payment.valid_until}."
                 )
 
@@ -1056,7 +1056,7 @@ class FitnessRepository:
         sender = self.data.users.get(sender_id)
         receiver = self.data.users.get(receiver_id)
         if sender is None or receiver is None:
-            raise ValueError("Posiljalac ili primalac nije pronadjen.")
+            raise ValueError("Sender or recipient not found.")
 
         created_at = self._current_time()
         connection = self.connection_factory()
@@ -1109,7 +1109,7 @@ class FitnessRepository:
                 messages.append(message)
         return sorted(messages, key=self._message_sort_key)
 
-    # ---------------------------- POMOCNO -------------------------------
+    # ---------------------------- HELPERS -------------------------------
     def _trainer_rating_summary(self, profile):
         ratings = []
         for rating in self.data.trainer_ratings.values():
